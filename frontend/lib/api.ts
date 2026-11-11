@@ -50,3 +50,12 @@ export async function checkHealth(): Promise<{ online: boolean; model: string | 
     return { online: false, model: null };
   }
 }
+
+export async function transcribeAudio(audio: Blob, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append("file", audio, filename);
+  const res = await fetch(`${API_URL}/transcribe`, { method: "POST", body: form });
+  const data = (await res.json().catch(() => ({}))) as { text?: string; detail?: string };
+  if (!res.ok) throw new Error(data.detail ?? `Transcription failed with status ${res.status}.`);
+  return data.text ?? "";
+}
