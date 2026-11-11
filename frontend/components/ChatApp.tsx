@@ -176,10 +176,8 @@ export default function ChatApp() {
               onEdit={chat.editMessage}
               onFeedback={chat.setFeedback}
             />
-            <div className="px-4 pb-3 md:px-6">
-              <div className="mx-auto max-w-3xl">
-                <Composer onSend={chat.send} onStop={stop} isStreaming={isStreaming} autoFocus />
-              </div>
+            <div className="mx-auto w-full max-w-4xl px-4 pb-3 md:px-6">
+              <Composer onSend={chat.send} onStop={stop} isStreaming={isStreaming} autoFocus />
             </div>
           </>
         )}

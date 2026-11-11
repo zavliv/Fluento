@@ -53,7 +53,7 @@ export function MessageList({ messages, isStreaming, onRegenerate, onEdit, onFee
   return (
     <div className="relative min-h-0 flex-1">
       <div ref={ref} onScroll={onScroll} className="fade-edges h-full overflow-y-auto">
-        <div className="fade-in mx-auto flex max-w-3xl flex-col gap-8 px-4 pt-8 pb-12 md:px-6">
+        <div className="fade-in mx-auto flex max-w-4xl flex-col gap-7 px-4 pt-8 pb-12 md:px-6">
           {messages.map((m) =>
             m.role === "user" ? (
               <UserMessage

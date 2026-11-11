@@ -22,6 +22,7 @@ import { API_URL } from "@/lib/api";
 import type { Conversation } from "@/lib/types";
 import { cn, groupConversations, modKey, shortcut } from "@/lib/utils";
 import { IconButton } from "./IconButton";
+import { LogoMark } from "./Logo";
 import { Menu } from "./ui/Menu";
 
 type ConversationActions = {
@@ -170,13 +171,8 @@ function Rail({ onOpen, onNew, onOpenPalette, onOpenShortcuts, online, theme, on
 
   return (
     <aside className="hidden w-[60px] shrink-0 flex-col items-center gap-1 border-r border-line bg-sidebar py-3 md:flex">
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label="Open sidebar"
-        className="mb-2 flex size-9 items-center justify-center rounded-xl bg-accent-soft text-[17px] font-bold tracking-tight text-accent"
-      >
-        O
+      <button type="button" onClick={onOpen} aria-label="Open sidebar" className="mb-2">
+        <LogoMark size={36} />
       </button>
       <IconButton label={`Open sidebar (${shortcut("B")})`} tooltip="right" onClick={onOpen} className="size-9">
         <PanelLeft />

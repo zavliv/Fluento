@@ -79,7 +79,7 @@ export function UserMessage({ message, animate, canEdit, onEdit }: UserProps) {
 
   return (
     <div className={cn("group flex flex-col items-end", animate && "animate-in")}>
-      <div className="max-w-[85%] rounded-[20px] rounded-br-md bg-bubble px-4 py-2.5 text-[15px] leading-7 break-words whitespace-pre-wrap text-ink">
+      <div className="max-w-[80%] rounded-2xl rounded-br-md border border-line/60 bg-bubble px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap text-ink">
         {text}
       </div>
       <div className="mt-1 flex items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
@@ -133,10 +133,10 @@ export function AssistantMessage({
   const toggleFeedback = (value: Feedback) => onFeedback(message.id, message.feedback === value ? undefined : value);
 
   return (
-    <div className={cn("group flex gap-3.5", animate && "animate-in")}>
-      <LogoMark size={28} className={cn("mt-0.5", streaming && "logo-pulse")} />
-      <div className="min-w-0 flex-1">
-        <div className="mb-1 flex h-7 items-center gap-2">
+    <div className={cn("group", animate && "animate-in")}>
+      <div className="min-w-0">
+        <div className="mb-2 flex h-7 items-center gap-2.5">
+          <LogoMark size={26} className={cn(streaming && "logo-pulse")} />
           <span className="text-sm font-semibold text-ink">Orbit AI</span>
           <span className="text-xs text-subtle">{formatTime(message.createdAt)}</span>
         </div>
