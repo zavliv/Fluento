@@ -1,8 +1,8 @@
-# Agent Chat
+# Orbit
 
-A chat app for a tool-using AI agent. The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**, and shows each tool call the agent makes.
+Orbit is a tool-using AI agent with a chat interface. The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**, and shows each tool call Orbit makes.
 
-The backend is intentionally small, so the agent can be built step by step.
+The backend is intentionally small, so Orbit can be built step by step.
 
 ## Features
 
@@ -24,7 +24,7 @@ The backend is intentionally small, so the agent can be built step by step.
 ## Project structure
 
 ```
-agent-chat/
+orbit/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py        # FastAPI app: /health and /chat (SSE)
