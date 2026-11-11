@@ -22,7 +22,6 @@ import { API_URL } from "@/lib/api";
 import type { Conversation } from "@/lib/types";
 import { cn, groupConversations, modKey, shortcut } from "@/lib/utils";
 import { IconButton } from "./IconButton";
-import { LogoMark } from "./Logo";
 import { Menu } from "./ui/Menu";
 
 type ConversationActions = {
@@ -75,17 +74,14 @@ export function Sidebar(props: Props) {
           open ? "translate-x-0" : "-translate-x-full md:-ml-[276px] md:translate-x-0",
         )}
       >
-        <div className="flex h-14 items-center justify-between pr-2.5 pl-4">
-          <div className="flex items-center gap-2.5">
-            <LogoMark size={26} />
-            <span className="text-[15px] font-semibold tracking-tight">Orbit AI</span>
-          </div>
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-line/70 pr-2.5 pl-4">
+          <Wordmark />
           <IconButton label={`Close sidebar (${shortcut("B")})`} tooltip="bottom" onClick={onClose}>
             <PanelLeftClose />
           </IconButton>
         </div>
 
-        <div className="flex items-center gap-1.5 px-3">
+        <div className="flex items-center gap-2 px-3 pt-3">
           <button
             type="button"
             onClick={onNew}
@@ -93,7 +89,7 @@ export function Sidebar(props: Props) {
           >
             <SquarePen className="size-4 text-accent" />
             New chat
-            <span className="ml-auto hidden gap-0.5 opacity-70 transition-opacity group-hover/new:opacity-100 md:flex">
+            <span className="ml-auto hidden gap-0.5 opacity-0 transition-opacity group-hover/new:opacity-100 md:flex">
               <kbd className="kbd">{mod}</kbd>
               <kbd className="kbd">⇧</kbd>
               <kbd className="kbd">O</kbd>
@@ -157,14 +153,30 @@ export function Sidebar(props: Props) {
   );
 }
 
+function Wordmark() {
+  return (
+    <span className="flex items-center gap-1.5 select-none">
+      <span className="text-[19px] leading-none font-bold tracking-[-0.03em] text-ink">Orbit</span>
+      <span className="rounded-md bg-accent-soft px-1.5 py-[3px] text-[10.5px] leading-none font-bold tracking-wide text-accent">
+        AI
+      </span>
+    </span>
+  );
+}
+
 function Rail({ onOpen, onNew, onOpenPalette, onOpenShortcuts, online, theme, onThemeChange }: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
   return (
     <aside className="hidden w-[60px] shrink-0 flex-col items-center gap-1 border-r border-line bg-sidebar py-3 md:flex">
-      <button type="button" onClick={onOpen} aria-label="Open sidebar" className="mb-2">
-        <LogoMark size={30} />
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="Open sidebar"
+        className="mb-2 flex size-9 items-center justify-center rounded-xl bg-accent-soft text-[17px] font-bold tracking-tight text-accent"
+      >
+        O
       </button>
       <IconButton label={`Open sidebar (${shortcut("B")})`} tooltip="right" onClick={onOpen} className="size-9">
         <PanelLeft />
