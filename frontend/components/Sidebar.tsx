@@ -48,15 +48,14 @@ type Props = ConversationActions & {
   online: boolean | null;
 };
 
+const SIDEBAR_BUTTON =
+  "flex h-10 items-center rounded-xl border border-line bg-surface text-sm shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-all hover:border-accent/40 hover:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.08)]";
+
 export function Sidebar(props: Props) {
   const { open, onClose, conversations, activeId, onNew } = props;
-  const [query, setQuery] = useState("");
   const mod = modKey();
 
-  const groups = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return groupConversations(q ? conversations.filter((c) => c.title.toLowerCase().includes(q)) : conversations);
-  }, [conversations, query]);
+  const groups = useMemo(() => groupConversations(conversations), [conversations]);
 
   return (
     <>
@@ -86,11 +85,11 @@ export function Sidebar(props: Props) {
           </IconButton>
         </div>
 
-        <div className="space-y-2 px-3">
+        <div className="flex items-center gap-1.5 px-3">
           <button
             type="button"
             onClick={onNew}
-            className="group/new flex w-full items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-all hover:border-accent/40 hover:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.08)]"
+            className={cn(SIDEBAR_BUTTON, "group/new min-w-0 flex-1 gap-2.5 px-3 font-medium text-ink")}
           >
             <SquarePen className="size-4 text-accent" />
             New chat
@@ -100,32 +99,20 @@ export function Sidebar(props: Props) {
               <kbd className="kbd">O</kbd>
             </span>
           </button>
-          <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-subtle transition-colors focus-within:bg-hover hover:bg-hover/70">
-            <Search className="size-4 shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search chats"
-              className="w-full bg-transparent text-ink outline-none placeholder:text-subtle"
-            />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                props.onOpenPalette();
-              }}
-              className="hidden shrink-0 gap-0.5 md:flex"
-              title="Open command palette"
-            >
-              <kbd className="kbd">{mod}</kbd>
-              <kbd className="kbd">K</kbd>
-            </button>
-          </label>
+          <button
+            type="button"
+            onClick={props.onOpenPalette}
+            aria-label="Search chats"
+            data-tip={`Search chats (${shortcut("K")})`}
+            className={cn(SIDEBAR_BUTTON, "tip tip-bottom w-10 shrink-0 justify-center text-muted hover:text-ink")}
+          >
+            <Search className="size-4" />
+          </button>
         </div>
 
         <nav className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-3">
           {groups.length === 0 ? (
-            <EmptyList searching={Boolean(query)} />
+            <EmptyList />
           ) : (
             groups.map((group) => (
               <div key={group.label} className="mb-3">
@@ -212,16 +199,14 @@ function Rail({ onOpen, onNew, onOpenPalette, onOpenShortcuts, online, theme, on
   );
 }
 
-function EmptyList({ searching }: { searching: boolean }) {
+function EmptyList() {
   return (
     <div className="flex flex-col items-center px-4 py-10 text-center">
       <span className="mb-3 flex size-10 items-center justify-center rounded-xl bg-hover text-subtle">
-        {searching ? <Search className="size-4" /> : <SquarePen className="size-4" />}
+        <SquarePen className="size-4" />
       </span>
-      <p className="text-sm font-medium text-ink">{searching ? "No matches" : "No chats yet"}</p>
-      <p className="mt-1 text-xs text-subtle">
-        {searching ? "Try a different search." : "Start a conversation and it'll show up here."}
-      </p>
+      <p className="text-sm font-medium text-ink">No chats yet</p>
+      <p className="mt-1 text-xs text-subtle">Start a conversation and it&apos;ll show up here.</p>
     </div>
   );
 }

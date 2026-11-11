@@ -159,7 +159,6 @@ export default function ChatApp() {
           model={model}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onNew={newChat}
-          onOpenPalette={() => setPaletteOpen(true)}
           onTogglePin={pinChat}
           onExport={exportChat}
           onDelete={deleteChat}

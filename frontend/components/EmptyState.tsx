@@ -3,7 +3,6 @@
 import { ArrowUpRight, Calculator, Clock, CodeXml, Globe } from "lucide-react";
 import { greeting, modKey } from "@/lib/utils";
 import { Composer } from "./Composer";
-import { LogoMark } from "./Logo";
 
 const SUGGESTIONS = [
   { icon: Calculator, title: "Crunch some numbers", prompt: "What is 18% of 2,450, plus 312?" },
@@ -27,8 +26,7 @@ export function EmptyState({ onSend, onStop, isStreaming }: Props) {
 
       <div className="relative m-auto w-full max-w-2xl px-4 py-10 md:px-6">
         <div className="animate-in mb-9 flex flex-col items-center text-center">
-          <LogoMark size={52} className="shadow-[0_12px_32px_-12px_var(--accent)]" />
-          <h1 className="mt-6 text-[34px] leading-[1.15] font-semibold tracking-[-0.02em] text-ink md:text-[40px]">
+          <h1 className="text-[34px] leading-[1.15] font-semibold tracking-[-0.02em] text-ink md:text-[40px]">
             {greeting()}
           </h1>
           <p className="mt-2.5 max-w-md text-[15px] leading-relaxed text-muted">
