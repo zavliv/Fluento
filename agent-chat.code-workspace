@@ -1,0 +1,27 @@
+{
+  "folders": [
+    { "name": "agent-chat", "path": "." },
+    { "name": "frontend", "path": "frontend" },
+    { "name": "backend", "path": "backend" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.next": true,
+      "**/__pycache__": true,
+      "**/.venv": true
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder:backend}/.venv/bin/python",
+    "typescript.tsdk": "frontend/node_modules/typescript/lib",
+    "editor.formatOnSave": true
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "charliermarsh.ruff",
+      "dbaeumer.vscode-eslint",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode"
+    ]
+  }
+}
