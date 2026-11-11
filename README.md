@@ -1,8 +1,8 @@
-# Orbit
+# Orbit AI
 
-Orbit is a tool-using AI agent with a chat interface. The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**, and shows each tool call Orbit makes.
+Orbit AI is a tool-using AI agent with a chat interface. The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**, and shows each tool call Orbit AI makes.
 
-The backend is intentionally small, so Orbit can be built step by step.
+The backend is intentionally small, so Orbit AI can be built step by step.
 
 ## Features
 
@@ -24,7 +24,7 @@ The backend is intentionally small, so Orbit can be built step by step.
 ## Project structure
 
 ```
-orbit/
+Orbit-AI/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py        # FastAPI app: /health and /chat (SSE)

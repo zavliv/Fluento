@@ -1,7 +1,7 @@
 [project]
 name = "orbit-backend"
 version = "0.1.0"
-description = "FastAPI backend for Orbit"
+description = "FastAPI backend for Orbit AI"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.162.4",

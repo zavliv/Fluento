@@ -55,7 +55,7 @@ export function Sidebar(props: Props) {
         <div className="flex h-14 items-center justify-between pr-2.5 pl-4">
           <div className="flex items-center gap-2.5">
             <LogoMark size={26} />
-            <span className="text-[15px] font-semibold tracking-tight">Orbit</span>
+            <span className="text-[15px] font-semibold tracking-tight">Orbit AI</span>
           </div>
           <IconButton label={`Close sidebar (${mod}+B)`} onClick={onClose}>
             <PanelLeftClose />

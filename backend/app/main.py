@@ -9,7 +9,7 @@ from app.config import settings
 from app.llm import stream_reply
 from app.schemas import ChatRequest
 
-app = FastAPI(title="Orbit API")
+app = FastAPI(title="Orbit AI API")
 
 app.add_middleware(
     CORSMiddleware,

@@ -28,7 +28,7 @@ export function EmptyState({ onSend, onStop, isStreaming }: Props) {
             {greeting()}
           </h1>
           <p className="mt-3 max-w-md text-[15px] text-muted">
-            Ask anything. Orbit reasons, calls tools, and shows you every step it takes.
+            Ask anything. Orbit AI reasons, calls tools, and shows you every step it takes.
           </p>
         </div>
 

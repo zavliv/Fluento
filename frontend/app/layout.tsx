@@ -7,8 +7,8 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 const instrumentSerif = Instrument_Serif({ variable: "--font-instrument-serif", subsets: ["latin"], weight: "400" });
 
 export const metadata: Metadata = {
-  title: "Orbit",
-  description: "Orbit, a tool-using AI agent.",
+  title: "Orbit AI",
+  description: "Orbit AI, a tool-using AI agent.",
 };
 
 export const viewport: Viewport = {

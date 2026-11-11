@@ -14,7 +14,7 @@ type Props = {
 
 const MAX_HEIGHT = 220;
 
-export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder = "Message Orbit…" }: Props) {
+export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder = "Message Orbit AI…" }: Props) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   const canSend = value.trim().length > 0 && !isStreaming;
@@ -127,7 +127,7 @@ export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder =
           )}
         </div>
       </div>
-      <p className="mt-2 text-center text-xs text-subtle">Orbit can make mistakes. Check important results.</p>
+      <p className="mt-2 text-center text-xs text-subtle">Orbit AI can make mistakes. Check important results.</p>
     </div>
   );
 }
