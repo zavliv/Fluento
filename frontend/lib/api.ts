@@ -46,11 +46,13 @@ export async function streamChat(
   }
 }
 
-export async function checkHealth() {
+export async function checkHealth(): Promise<{ online: boolean; model: string | null }> {
   try {
     const res = await fetch(`${API_URL}/health`, { cache: "no-store" });
-    return res.ok;
+    if (!res.ok) return { online: false, model: null };
+    const data = (await res.json()) as { model?: string };
+    return { online: true, model: data.model ?? null };
   } catch {
-    return false;
+    return { online: false, model: null };
   }
 }

@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 import { checkHealth } from "@/lib/api";
 
 export function useBackendStatus() {
-  const [online, setOnline] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<{ online: boolean | null; model: string | null }>({
+    online: null,
+    model: null,
+  });
 
   useEffect(() => {
     let alive = true;
     const check = async () => {
-      const ok = await checkHealth();
-      if (alive) setOnline(ok);
+      const result = await checkHealth();
+      if (alive) setStatus(result);
     };
     void check();
     const timer = setInterval(check, 15000);
@@ -22,5 +25,5 @@ export function useBackendStatus() {
     };
   }, []);
 
-  return online;
+  return status;
 }

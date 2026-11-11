@@ -7,9 +7,10 @@ type Props = {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onNew: () => void;
+  model: string | null;
 };
 
-export function ChatHeader({ title, sidebarOpen, onToggleSidebar, onNew }: Props) {
+export function ChatHeader({ title, sidebarOpen, onToggleSidebar, onNew, model }: Props) {
   const mod = modKey();
   return (
     <header className="flex h-14 shrink-0 items-center gap-1 border-b border-line/70 px-2.5 md:px-4">
@@ -28,7 +29,7 @@ export function ChatHeader({ title, sidebarOpen, onToggleSidebar, onNew }: Props
         <Sparkles className="size-3 text-accent" />
         Agent
         <span className="text-subtle">·</span>
-        <span className="font-mono text-[11px]">demo</span>
+        <span className="max-w-48 truncate font-mono text-[11px]">{model ?? "offline"}</span>
       </span>
     </header>
   );

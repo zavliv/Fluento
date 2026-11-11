@@ -15,7 +15,7 @@ const isMobile = () => window.innerWidth < 768;
 export default function ChatApp() {
   const chat = useChat();
   const { theme, setTheme } = useTheme();
-  const online = useBackendStatus();
+  const { online, model } = useBackendStatus();
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const { newChat, stop, isStreaming } = chat;
 
@@ -75,6 +75,7 @@ export default function ChatApp() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onNew={chat.newChat}
+          model={model}
         />
 
         {messages.length === 0 ? (

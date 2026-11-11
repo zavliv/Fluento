@@ -1,15 +1,22 @@
-import asyncio
 import json
 import os
-import uuid
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from groq import AsyncGroq, GroqError
 from pydantic import BaseModel
 
 load_dotenv()
+
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+SYSTEM_PROMPT = (
+    "You are a helpful, concise assistant. "
+    "Use Markdown for structure and fenced code blocks for code."
+)
+
+client = AsyncGroq()
 
 app = FastAPI(title="Agent Chat API")
 
@@ -35,30 +42,34 @@ def sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
-async def demo_stream(user_text: str):
-    tool_id = f"tool_{uuid.uuid4().hex[:8]}"
-    yield sse({"type": "tool_call", "id": tool_id, "name": "echo", "input": {"text": user_text}})
-    await asyncio.sleep(0.8)
-    yield sse({"type": "tool_result", "id": tool_id, "output": user_text, "is_error": False})
+async def llm_stream(messages: list[ChatMessage]):
+    history = [{"role": "system", "content": SYSTEM_PROMPT}]
+    history += [{"role": m.role, "content": m.content} for m in messages]
 
-    reply = (
-        f"You said: **{user_text}**\n\n"
-        "This is a demo reply from the backend. Replace `demo_stream` in "
-        "`backend/app/main.py` with a real LLM call to bring the agent to life."
-    )
-    for word in reply.split(" "):
-        yield sse({"type": "text", "text": word + " "})
-        await asyncio.sleep(0.03)
+    try:
+        stream = await client.chat.completions.create(
+            model=MODEL,
+            messages=history,
+            stream=True,
+        )
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            text = chunk.choices[0].delta.content
+            if text:
+                yield sse({"type": "text", "text": text})
+    except GroqError as e:
+        yield sse({"type": "error", "message": str(e)})
+        return
 
     yield sse({"type": "done"})
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "model": MODEL}
 
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    last_user_message = request.messages[-1].content if request.messages else ""
-    return StreamingResponse(demo_stream(last_user_message), media_type="text/event-stream")
+    return StreamingResponse(llm_stream(request.messages), media_type="text/event-stream")
