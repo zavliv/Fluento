@@ -3,7 +3,10 @@ import { cn } from "@/lib/utils";
 export function LogoMark({ size = 28, className }: { size?: number; className?: string }) {
   return (
     <span
-      className={cn("inline-flex shrink-0 items-center justify-center rounded-[30%] bg-accent text-accent-ink", className)}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-[30%] bg-accent text-accent-ink",
+        className,
+      )}
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 24 24" width={size * 0.62} height={size * 0.62} fill="none" aria-hidden>

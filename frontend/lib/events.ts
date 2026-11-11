@@ -22,7 +22,14 @@ export function applyEvent(message: Message, event: StreamEvent): Message {
         ...message,
         parts: [
           ...message.parts,
-          { type: "tool", id: event.id, name: event.name, input: event.input, status: "running", startedAt: Date.now() },
+          {
+            type: "tool",
+            id: event.id,
+            name: event.name,
+            input: event.input,
+            status: "running",
+            startedAt: Date.now(),
+          },
         ],
       };
     case "tool_result":

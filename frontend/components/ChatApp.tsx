@@ -42,9 +42,6 @@ export default function ChatApp() {
   };
 
   const messages = chat.active?.messages ?? [];
-  const streamingConversationId = chat.streamingId
-    ? (chat.conversations.find((c) => c.messages.some((m) => m.id === chat.streamingId))?.id ?? null)
-    : null;
 
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
@@ -53,7 +50,7 @@ export default function ChatApp() {
         onClose={() => setSidebarOpen(false)}
         conversations={chat.conversations}
         activeId={chat.activeId}
-        streamingConversationId={streamingConversationId}
+        streamingConversationId={chat.streamingConversationId}
         onSelect={(id) => {
           chat.select(id);
           closeOnMobile();

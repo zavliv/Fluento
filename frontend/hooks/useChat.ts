@@ -24,9 +24,11 @@ export function useChat() {
     return () => clearTimeout(timer);
   }, [conversations, streamingId]);
 
-  const active = useMemo(
-    () => conversations.find((c) => c.id === activeId) ?? null,
-    [conversations, activeId],
+  const active = useMemo(() => conversations.find((c) => c.id === activeId) ?? null, [conversations, activeId]);
+
+  const streamingConversationId = useMemo(
+    () => (streamingId ? (conversations.find((c) => c.messages.some((m) => m.id === streamingId))?.id ?? null) : null),
+    [conversations, streamingId],
   );
 
   const runAssistant = useCallback(async (conversationId: string, history: Message[]) => {
@@ -39,9 +41,7 @@ export function useChat() {
     };
 
     setConversations((cs) =>
-      cs.map((c) =>
-        c.id === conversationId ? { ...c, messages: [...history, assistant], updatedAt: Date.now() } : c,
-      ),
+      cs.map((c) => (c.id === conversationId ? { ...c, messages: [...history, assistant], updatedAt: Date.now() } : c)),
     );
 
     const controller = new AbortController();
@@ -51,18 +51,12 @@ export function useChat() {
     const patch = (fn: (m: Message) => Message) =>
       setConversations((cs) =>
         cs.map((c) =>
-          c.id !== conversationId
-            ? c
-            : { ...c, messages: c.messages.map((m) => (m.id === assistant.id ? fn(m) : m)) },
+          c.id !== conversationId ? c : { ...c, messages: c.messages.map((m) => (m.id === assistant.id ? fn(m) : m)) },
         ),
       );
 
     try {
-      await streamChat(
-        { conversation_id: conversationId, messages: toApiMessages(history) },
-        (event) => patch((m) => applyEvent(m, event)),
-        controller.signal,
-      );
+      await streamChat(toApiMessages(history), (event) => patch((m) => applyEvent(m, event)), controller.signal);
       patch((m) => (m.status === "streaming" ? { ...m, status: "done", parts: settleParts(m.parts) } : m));
     } catch (err) {
       if (controller.signal.aborted) {
@@ -153,7 +147,7 @@ export function useChat() {
     conversations,
     active,
     activeId,
-    streamingId,
+    streamingConversationId,
     isStreaming: streamingId !== null,
     send,
     stop,

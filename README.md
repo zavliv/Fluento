@@ -1,8 +1,8 @@
 # Agent Chat
 
-A chat app for a tool-using AI agent. The **Next.js** frontend streams replies from a **FastAPI** backend and shows each tool call the agent makes.
+A chat app for a tool-using AI agent. The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**, and shows each tool call the agent makes.
 
-The backend is intentionally a skeleton. It streams a demo reply so the UI works end to end, and the real agent gets built step by step.
+The backend is intentionally small, so the agent can be built step by step.
 
 ## Features
 
@@ -19,14 +19,19 @@ The backend is intentionally a skeleton. It streams a demo reply so the UI works
 | Layer    | Tech                                                |
 | -------- | --------------------------------------------------- |
 | Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS v4 |
-| Backend  | Python 3.12+, FastAPI, Uvicorn, uv                  |
+| Backend  | Python 3.12+, FastAPI, Groq SDK, pydantic-settings, uv |
 
 ## Project structure
 
 ```
 agent-chat/
 ├── backend/
-│   ├── app/main.py        # FastAPI app: /health and /chat (SSE)
+│   ├── app/
+│   │   ├── main.py        # FastAPI app: /health and /chat (SSE)
+│   │   ├── config.py      # Settings from env vars / .env
+│   │   ├── llm.py         # Groq client and streaming reply
+│   │   ├── prompts.py     # System prompt
+│   │   └── schemas.py     # Request models
 │   ├── pyproject.toml
 │   └── .env.example
 └── frontend/
@@ -40,6 +45,8 @@ agent-chat/
 ## Getting started
 
 ### Backend
+
+Get a free API key from [console.groq.com](https://console.groq.com) and set `GROQ_API_KEY` in `backend/.env`.
 
 ```bash
 cd backend
@@ -59,13 +66,27 @@ npm run dev
 
 Open http://localhost:3000.
 
+## Configuration
+
+Backend settings live in `backend/app/config.py` and are read from `backend/.env`:
+
+| Variable          | Default                     | Description                          |
+| ----------------- | --------------------------- | ------------------------------------ |
+| `GROQ_API_KEY`    | (required)                  | Groq API key                         |
+| `LLM_MODEL`       | `openai/gpt-oss-120b`       | Groq model to use                    |
+| `LLM_MAX_TOKENS`  | `4096`                      | Max tokens per reply                 |
+| `LLM_TEMPERATURE` | `0.3`                       | Sampling temperature                 |
+| `HISTORY_LIMIT`   | `40`                        | Max past messages sent to the model  |
+| `CORS_ORIGINS`    | `["http://localhost:3000"]` | Allowed frontend origins (JSON list) |
+
+The frontend reads `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.
+
 ## Streaming protocol
 
 `POST /chat` takes:
 
 ```json
 {
-  "conversation_id": "abc123",
   "messages": [{ "role": "user", "content": "Hello" }]
 }
 ```
@@ -96,8 +117,7 @@ Any backend that emits these events works with the UI.
 ## Roadmap
 
 - [x] Chat UI and streaming protocol
-- [x] FastAPI skeleton with a demo stream
-- [ ] Connect a real LLM with streaming
+- [x] FastAPI backend with streaming replies from Groq
 - [ ] Add tools (calculator, current time, web search)
 - [ ] Agent loop: call tools until the task is done
 - [ ] Conversation memory on the backend

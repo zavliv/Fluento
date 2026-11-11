@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, LoaderCircle, Wrench, X } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { ToolPart } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -74,17 +74,7 @@ export function ToolCallCard({ part }: { part: ToolPart }) {
   );
 }
 
-function ToolSection({
-  label,
-  body,
-  icon,
-  tone,
-}: {
-  label: string;
-  body: string;
-  icon?: React.ReactNode;
-  tone?: "danger";
-}) {
+function ToolSection({ label, body, icon, tone }: { label: string; body: string; icon?: ReactNode; tone?: "danger" }) {
   return (
     <div>
       <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-subtle uppercase [&_svg]:size-3">

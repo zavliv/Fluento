@@ -3,7 +3,7 @@ import { extractText } from "@/lib/utils";
 import { CopyButton } from "./CopyButton";
 
 export function CodeBlock({ children }: { children: ReactNode }) {
-  const className = isValidElement<{ className?: string }>(children) ? children.props.className ?? "" : "";
+  const className = isValidElement<{ className?: string }>(children) ? (children.props.className ?? "") : "";
   const language = /language-([\w+-]+)/.exec(className)?.[1] ?? "text";
   const code = extractText(children).replace(/\n$/, "");
 

@@ -182,7 +182,12 @@ function ConversationItem({ conversation, active, busy, onSelect, onDelete, onRe
       {mode === "confirm" ? (
         <div className="flex items-center gap-0.5 pr-1">
           <span className="mr-0.5 text-xs font-medium text-danger">Delete?</span>
-          <IconButton label="Confirm delete" size="sm" onClick={() => onDelete(conversation.id)} className="hover:text-danger">
+          <IconButton
+            label="Confirm delete"
+            size="sm"
+            onClick={() => onDelete(conversation.id)}
+            className="hover:text-danger"
+          >
             <Check />
           </IconButton>
           <IconButton label="Cancel" size="sm" onClick={() => setMode("idle")}>

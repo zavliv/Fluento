@@ -6,20 +6,14 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000
 export type ApiMessage = { role: "user" | "assistant"; content: string };
 
 export function toApiMessages(messages: Message[]): ApiMessage[] {
-  return messages
-    .map((m) => ({ role: m.role, content: messageText(m) }))
-    .filter((m) => m.content.trim().length > 0);
+  return messages.map((m) => ({ role: m.role, content: messageText(m) })).filter((m) => m.content.trim().length > 0);
 }
 
-export async function streamChat(
-  body: { conversation_id: string; messages: ApiMessage[] },
-  onEvent: (event: StreamEvent) => void,
-  signal: AbortSignal,
-) {
+export async function streamChat(messages: ApiMessage[], onEvent: (event: StreamEvent) => void, signal: AbortSignal) {
   const res = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ messages }),
     signal,
   });
   if (!res.ok || !res.body) throw new Error(`The backend responded with status ${res.status}.`);
