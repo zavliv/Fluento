@@ -2,7 +2,9 @@
 
 import { ArrowDown } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
-import type { Message } from "@/lib/types";
+import { useReadAloud } from "@/hooks/useReadAloud";
+import type { Feedback, Message } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { AssistantMessage, UserMessage } from "./Message";
 
 type Props = {
@@ -10,13 +12,16 @@ type Props = {
   isStreaming: boolean;
   onRegenerate: () => void;
   onEdit: (id: string, text: string) => void;
+  onFeedback: (id: string, feedback: Feedback | undefined) => void;
 };
 
-export function MessageList({ messages, isStreaming, onRegenerate, onEdit }: Props) {
+export function MessageList({ messages, isStreaming, onRegenerate, onEdit, onFeedback }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const count = useRef(0);
+  const [initialIds] = useState(() => new Set(messages.map((m) => m.id)));
   const [showJump, setShowJump] = useState(false);
+  const readAloud = useReadAloud();
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -47,18 +52,29 @@ export function MessageList({ messages, isStreaming, onRegenerate, onEdit }: Pro
 
   return (
     <div className="relative min-h-0 flex-1">
-      <div ref={ref} onScroll={onScroll} className="h-full overflow-y-auto">
-        <div className="mx-auto flex max-w-3xl flex-col gap-7 px-4 pt-6 pb-10 md:px-6">
+      <div ref={ref} onScroll={onScroll} className="fade-edges h-full overflow-y-auto">
+        <div className="fade-in mx-auto flex max-w-3xl flex-col gap-8 px-4 pt-8 pb-12 md:px-6">
           {messages.map((m) =>
             m.role === "user" ? (
-              <UserMessage key={m.id} message={m} canEdit={!isStreaming} onEdit={onEdit} />
+              <UserMessage
+                key={m.id}
+                message={m}
+                animate={!initialIds.has(m.id)}
+                canEdit={!isStreaming}
+                onEdit={onEdit}
+              />
             ) : (
               <AssistantMessage
                 key={m.id}
                 message={m}
+                animate={!initialIds.has(m.id)}
                 isLast={m.id === lastAssistantId}
                 canRegenerate={!isStreaming}
+                speaking={readAloud.speakingId === m.id}
+                canSpeak={readAloud.supported}
                 onRegenerate={onRegenerate}
+                onFeedback={onFeedback}
+                onReadAloud={readAloud.toggle}
               />
             ),
           )}
@@ -69,11 +85,13 @@ export function MessageList({ messages, isStreaming, onRegenerate, onEdit }: Pro
         type="button"
         onClick={jump}
         aria-label="Scroll to latest"
-        className={`absolute bottom-3 left-1/2 flex size-9 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-[0_6px_20px_-8px_rgba(0,0,0,0.25)] transition-all hover:text-ink ${
-          showJump ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
-        }`}
+        className={cn(
+          "absolute bottom-3 left-1/2 flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-xs font-medium text-muted shadow-[0_6px_20px_-8px_rgb(0_0_0/0.25)] transition-all hover:text-ink",
+          showJump ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+        )}
       >
-        <ArrowDown className="size-4" />
+        <ArrowDown className="size-3.5" />
+        {isStreaming ? "New reply" : "Latest"}
       </button>
     </div>
   );

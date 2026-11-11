@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_URL, streamChat, toApiMessages } from "@/lib/api";
 import { applyEvent, settleParts } from "@/lib/events";
 import { loadConversations, saveConversations } from "@/lib/storage";
-import type { Conversation, Message } from "@/lib/types";
+import type { Conversation, Feedback, Message } from "@/lib/types";
 import { makeTitle, uid } from "@/lib/utils";
 
 function describeError(err: unknown) {
@@ -130,11 +130,35 @@ export function useChat() {
 
   const remove = useCallback(
     (id: string) => {
+      const removed = conversations.find((c) => c.id === id) ?? null;
       if (id === activeId) {
         abortRef.current?.abort();
         setActiveId(null);
       }
       setConversations((cs) => cs.filter((c) => c.id !== id));
+      return removed;
+    },
+    [activeId, conversations],
+  );
+
+  const restore = useCallback((conversation: Conversation) => {
+    setConversations((cs) => (cs.some((c) => c.id === conversation.id) ? cs : [conversation, ...cs]));
+  }, []);
+
+  const togglePin = useCallback((id: string) => {
+    setConversations((cs) => cs.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)));
+  }, []);
+
+  const setFeedback = useCallback(
+    (messageId: string, feedback: Feedback | undefined) => {
+      if (!activeId) return;
+      setConversations((cs) =>
+        cs.map((c) =>
+          c.id !== activeId
+            ? c
+            : { ...c, messages: c.messages.map((m) => (m.id === messageId ? { ...m, feedback } : m)) },
+        ),
+      );
     },
     [activeId],
   );
@@ -156,6 +180,9 @@ export function useChat() {
     newChat,
     select,
     remove,
+    restore,
     rename,
+    togglePin,
+    setFeedback,
   };
 }

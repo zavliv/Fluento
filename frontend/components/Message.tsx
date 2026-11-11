@@ -1,8 +1,8 @@
 "use client";
 
-import { Pencil, RefreshCw, TriangleAlert } from "lucide-react";
+import { Pencil, RefreshCw, ThumbsDown, ThumbsUp, TriangleAlert, Volume2, VolumeX } from "lucide-react";
 import { useState } from "react";
-import type { Message } from "@/lib/types";
+import type { Feedback, Message } from "@/lib/types";
 import { cn, messageText } from "@/lib/utils";
 import { CopyButton } from "./CopyButton";
 import { IconButton } from "./IconButton";
@@ -17,11 +17,12 @@ function formatTime(ts: number) {
 
 type UserProps = {
   message: Message;
+  animate: boolean;
   canEdit: boolean;
   onEdit: (id: string, text: string) => void;
 };
 
-export function UserMessage({ message, canEdit, onEdit }: UserProps) {
+export function UserMessage({ message, animate, canEdit, onEdit }: UserProps) {
   const text = messageText(message);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
@@ -34,8 +35,8 @@ export function UserMessage({ message, canEdit, onEdit }: UserProps) {
 
   if (editing) {
     return (
-      <div className="animate-in flex justify-end">
-        <div className="w-full max-w-[85%] rounded-2xl border border-accent/40 bg-surface p-3">
+      <div className="flex justify-end">
+        <div className="w-full max-w-[85%] rounded-2xl border border-accent/40 bg-surface p-3 shadow-[0_8px_24px_-16px_rgb(0_0_0/0.3)]">
           <textarea
             autoFocus
             value={draft}
@@ -49,24 +50,27 @@ export function UserMessage({ message, canEdit, onEdit }: UserProps) {
             }}
             className="block max-h-72 min-h-16 w-full resize-none bg-transparent text-[15px] leading-7 text-ink outline-none [field-sizing:content]"
           />
-          <div className="mt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(text);
-                setEditing(false);
-              }}
-              className="rounded-lg px-3 py-1.5 text-sm text-muted hover:bg-hover hover:text-ink"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90"
-            >
-              Send
-            </button>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-xs text-subtle">Editing resends from this message</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(text);
+                  setEditing(false);
+                }}
+                className="rounded-lg px-3 py-1.5 text-sm text-muted hover:bg-hover hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90"
+              >
+                Send
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -74,7 +78,7 @@ export function UserMessage({ message, canEdit, onEdit }: UserProps) {
   }
 
   return (
-    <div className="animate-in group flex flex-col items-end">
+    <div className={cn("group flex flex-col items-end", animate && "animate-in")}>
       <div className="max-w-[85%] rounded-[20px] rounded-br-md bg-bubble px-4 py-2.5 text-[15px] leading-7 break-words whitespace-pre-wrap text-ink">
         {text}
       </div>
@@ -83,7 +87,7 @@ export function UserMessage({ message, canEdit, onEdit }: UserProps) {
         <CopyButton text={text} />
         {canEdit && (
           <IconButton
-            label="Edit message"
+            label="Edit"
             size="sm"
             onClick={() => {
               setDraft(text);
@@ -100,21 +104,43 @@ export function UserMessage({ message, canEdit, onEdit }: UserProps) {
 
 type AssistantProps = {
   message: Message;
+  animate: boolean;
   isLast: boolean;
   canRegenerate: boolean;
+  speaking: boolean;
+  canSpeak: boolean;
   onRegenerate: () => void;
+  onFeedback: (id: string, feedback: Feedback | undefined) => void;
+  onReadAloud: (id: string, text: string) => void;
 };
 
-export function AssistantMessage({ message, isLast, canRegenerate, onRegenerate }: AssistantProps) {
+export function AssistantMessage({
+  message,
+  animate,
+  isLast,
+  canRegenerate,
+  speaking,
+  canSpeak,
+  onRegenerate,
+  onFeedback,
+  onReadAloud,
+}: AssistantProps) {
   const streaming = message.status === "streaming";
   const text = messageText(message);
   const lastPart = message.parts.at(-1);
   const waitingAfterTool = streaming && lastPart?.type === "tool" && lastPart.status !== "running";
 
+  const toggleFeedback = (value: Feedback) => onFeedback(message.id, message.feedback === value ? undefined : value);
+
   return (
-    <div className="animate-in group flex gap-3.5">
-      <LogoMark size={28} className="mt-0.5" />
-      <div className="min-w-0 flex-1 pt-0.5">
+    <div className={cn("group flex gap-3.5", animate && "animate-in")}>
+      <LogoMark size={28} className={cn("mt-0.5", streaming && "logo-pulse")} />
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex h-7 items-center gap-2">
+          <span className="text-sm font-semibold text-ink">Orbit AI</span>
+          <span className="text-xs text-subtle">{formatTime(message.createdAt)}</span>
+        </div>
+
         {streaming && message.parts.length === 0 && <ThinkingIndicator />}
 
         {message.parts.map((part, i) =>
@@ -152,20 +178,45 @@ export function AssistantMessage({ message, isLast, canRegenerate, onRegenerate 
           </p>
         )}
 
-        {!streaming && (
+        {!streaming && text && (
           <div
             className={cn(
               "mt-2 -ml-1.5 flex items-center gap-0.5 transition-opacity",
               !isLast && "md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100",
             )}
           >
-            {text && <CopyButton text={text} />}
+            <CopyButton text={text} />
+            {canSpeak && (
+              <IconButton
+                label={speaking ? "Stop reading" : "Read aloud"}
+                size="sm"
+                onClick={() => onReadAloud(message.id, text)}
+                className={cn(speaking && "bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent")}
+              >
+                {speaking ? <VolumeX /> : <Volume2 />}
+              </IconButton>
+            )}
+            <IconButton
+              label="Good response"
+              size="sm"
+              onClick={() => toggleFeedback("up")}
+              className={cn(message.feedback === "up" && "text-accent hover:text-accent")}
+            >
+              <ThumbsUp className={cn(message.feedback === "up" && "fill-current")} />
+            </IconButton>
+            <IconButton
+              label="Bad response"
+              size="sm"
+              onClick={() => toggleFeedback("down")}
+              className={cn(message.feedback === "down" && "text-danger hover:text-danger")}
+            >
+              <ThumbsDown className={cn(message.feedback === "down" && "fill-current")} />
+            </IconButton>
             {isLast && canRegenerate && (
               <IconButton label="Regenerate" size="sm" onClick={onRegenerate}>
                 <RefreshCw />
               </IconButton>
             )}
-            <span className="ml-1 text-xs text-subtle">{formatTime(message.createdAt)}</span>
           </div>
         )}
       </div>

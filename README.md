@@ -9,8 +9,11 @@ The backend is intentionally small, so Orbit AI can be built step by step.
 - Streaming responses with live Markdown, GFM tables, and syntax-highlighted code blocks with copy
 - Voice input that writes your words into the message box as you speak (browser speech recognition), with Groq Whisper as a fallback
 - Collapsible tool-call cards that show the input, output, status, and duration
-- Conversation sidebar with search, date groups, rename, and delete, saved in local storage
-- Edit and resend, regenerate, stop generating, and retry on error
+- Conversation sidebar with search, date groups, pinned chats, rename, export to Markdown, and delete with undo
+- Collapsible sidebar that shrinks to an icon rail
+- Command palette (`Cmd/Ctrl + K`) to jump to any chat or run actions, plus a shortcuts dialog (`Cmd/Ctrl + /`)
+- Message actions: copy, read aloud, thumbs up/down feedback, regenerate, and edit and resend
+- Stop generating and retry on error
 - Light, dark, and system themes
 - Backend health indicator
 - Keyboard shortcuts and a mobile-friendly layout

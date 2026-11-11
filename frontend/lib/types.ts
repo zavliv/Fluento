@@ -17,6 +17,8 @@ export type ToolPart = {
 
 export type MessagePart = TextPart | ToolPart;
 
+export type Feedback = "up" | "down";
+
 export type MessageStatus = "streaming" | "done" | "error" | "stopped";
 
 export type Message = {
@@ -25,6 +27,7 @@ export type Message = {
   parts: MessagePart[];
   status: MessageStatus;
   error?: string;
+  feedback?: Feedback;
   createdAt: number;
 };
 
@@ -32,6 +35,7 @@ export type Conversation = {
   id: string;
   title: string;
   messages: Message[];
+  pinned?: boolean;
   createdAt: number;
   updatedAt: number;
 };

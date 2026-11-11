@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { ToastProvider } from "./ui/Toast";
 
 const ChatApp = dynamic(() => import("./ChatApp"), {
   ssr: false,
@@ -8,5 +9,9 @@ const ChatApp = dynamic(() => import("./ChatApp"), {
 });
 
 export function ClientRoot() {
-  return <ChatApp />;
+  return (
+    <ToastProvider>
+      <ChatApp />
+    </ToastProvider>
+  );
 }

@@ -29,9 +29,16 @@ export function extractText(node: ReactNode): string {
   return "";
 }
 
+function isMac() {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
+}
+
 export function modKey() {
-  if (typeof navigator === "undefined") return "Ctrl";
-  return /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl";
+  return isMac() ? "⌘" : "Ctrl";
+}
+
+export function shortcut(...keys: string[]) {
+  return isMac() ? `⌘${keys.join("")}` : ["Ctrl", ...keys.map((k) => (k === "⇧" ? "Shift" : k))].join("+");
 }
 
 export function greeting() {
@@ -54,10 +61,12 @@ export function groupConversations(conversations: Conversation[]) {
     { label: "Older", test: () => true },
   ];
   const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+  const pinned = { label: "Pinned", items: sorted.filter((c) => c.pinned) };
   const groups = buckets.map((b) => ({ label: b.label, items: [] as Conversation[] }));
   for (const c of sorted) {
+    if (c.pinned) continue;
     const i = buckets.findIndex((b) => b.test(c.updatedAt));
     groups[i].items.push(c);
   }
-  return groups.filter((g) => g.items.length > 0);
+  return [pinned, ...groups].filter((g) => g.items.length > 0);
 }
