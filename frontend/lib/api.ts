@@ -83,6 +83,7 @@ export type LevelTest = {
     answered: number;
     correct: number;
     streak: number;
+    results: boolean[];
     climb: CefrLevel;
     current: QuizQuestion | null;
     last: QuizFeedback | null;

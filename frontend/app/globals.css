@@ -18,6 +18,7 @@
   --accent-ink: #ffffff;
   --success: #15803d;
   --danger: #c0362c;
+  --status-ink: #ffffff;
   --code-bg: #1d1c1a;
   --composer-shadow: 0 1px 2px rgb(27 26 24 / 0.04), 0 10px 30px -14px rgb(27 26 24 / 0.18);
 }
@@ -38,6 +39,7 @@
   --accent-ink: #062a26;
   --success: #4ade80;
   --danger: #f87171;
+  --status-ink: #111110;
   --code-bg: #0c0c0b;
   --composer-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.7);
 }
@@ -57,6 +59,7 @@
   --color-accent-ink: var(--accent-ink);
   --color-success: var(--success);
   --color-danger: var(--danger);
+  --color-status-ink: var(--status-ink);
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
@@ -522,4 +525,17 @@ button {
 }
 .teacher-glow {
   background: radial-gradient(50% 60% at 50% 40%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sheet-up {
+  animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }

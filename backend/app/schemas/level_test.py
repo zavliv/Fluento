@@ -150,6 +150,7 @@ class QuizState(BaseModel):
     answered: int
     correct: int
     streak: int
+    results: list[bool] = []
     climb: Level
     current: QuizQuestion | None
     last: QuizFeedback | None = None
@@ -306,6 +307,7 @@ def quiz_state(doc: dict) -> QuizState | None:
         answered=len(quiz["asked"]),
         correct=sum(a["correct"] for a in quiz["asked"]),
         streak=streak,
+        results=[bool(a["correct"]) for a in quiz["asked"]],
         climb=LEVELS[quiz.get("step", 2)],
         current=current,
         last=QuizFeedback(**quiz["last"]) if quiz.get("last") else None,

@@ -24,11 +24,13 @@ export function FocusBar({
   onClose,
   closeLabel = "Close level test",
   progress,
+  steps,
   right,
 }: {
   onClose: () => void;
   closeLabel?: string;
   progress?: number;
+  steps?: { total: number; results: boolean[] };
   right?: ReactNode;
 }) {
   return (
@@ -42,7 +44,33 @@ export function FocusBar({
       >
         <X className="size-5" />
       </button>
-      {progress !== undefined ? (
+      {steps ? (
+        <div
+          className="flex flex-1 gap-1.5"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={steps.total}
+          aria-valuenow={steps.results.length}
+        >
+          {Array.from({ length: steps.total }, (_, i) => {
+            const result = steps.results[i];
+            const current = i === steps.results.length;
+            return (
+              <span key={i} className="relative h-2 flex-1 overflow-hidden rounded-full bg-hover">
+                <span
+                  className={cn(
+                    "absolute inset-0 origin-left rounded-full transition-[transform,background-color] duration-500 ease-out",
+                    result === undefined ? "scale-x-0" : "scale-x-100",
+                    result === true && "bg-accent",
+                    result === false && "bg-danger/55",
+                  )}
+                />
+                {current && <span className="absolute inset-0 animate-pulse rounded-full bg-accent/25" />}
+              </span>
+            );
+          })}
+        </div>
+      ) : progress !== undefined ? (
         <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-hover" role="progressbar" aria-valuenow={progress}>
           <div
             className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"

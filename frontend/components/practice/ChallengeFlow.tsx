@@ -1,6 +1,18 @@
 "use client";
 
-import { ArrowRight, Award, Check, Flame, ListChecks, LoaderCircle, Mic, Sparkles, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  Check,
+  Flame,
+  Headphones,
+  LoaderCircle,
+  Mic,
+  PenLine,
+  Sparkles,
+  SpellCheck,
+  Zap,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, CEFR_LEVELS, LEVEL_NAMES, type Challenge, type ChallengeResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -176,34 +188,120 @@ function PlacementIntro({ rounds, onStart, onClose }: { rounds: number; onStart:
 
   return (
     <>
-      <FocusBar onClose={onClose} />
-      <Centered>
-        <div className="animate-in">
-          <span className="mx-auto flex size-16 items-center justify-center rounded-[20px] bg-accent-soft text-accent">
-            <ListChecks className="size-8" />
-          </span>
-          <h1 className="mt-6 text-[32px] leading-tight font-bold tracking-[-0.03em] text-ink">Quick level check</h1>
-          <p className="mx-auto mt-3 max-w-sm text-[16px] leading-relaxed text-muted">
-            {rounds} quick rounds that get harder or easier as you go. Takes about 2 minutes.
-          </p>
-          <ul className="mx-auto mt-7 max-w-xs space-y-2.5 text-left text-sm text-ink">
-            {[
-              "Fill the gap, listen, and spot the mistake",
-              "Instant feedback after every answer",
-              "Your level, right at the end",
-            ].map((text) => (
-              <li key={text} className="flex items-center gap-2.5">
-                <Check className="size-4 shrink-0 text-success" strokeWidth={3} />
-                {text}
+      <FocusBar onClose={onClose} closeLabel="Close" />
+      <div className="flex min-h-0 flex-1 overflow-y-auto">
+        <div className="m-auto w-full max-w-lg px-5 pt-4 pb-12">
+          <div className="animate-in text-center">
+            <p className="text-sm font-semibold text-accent">About 2 minutes</p>
+            <h1 className="mt-2 text-[34px] leading-[1.1] font-bold tracking-[-0.03em] text-ink">
+              Let&apos;s find your level
+            </h1>
+            <p className="mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-muted">
+              {rounds} short rounds that adapt as you answer. Get one right and the next gets harder.
+            </p>
+          </div>
+
+          <LevelScan />
+
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+            {INTRO_FORMATS.map(({ icon: Icon, title, sample }, i) => (
+              <li
+                key={title}
+                className="animate-in flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 sm:flex-col sm:items-start sm:gap-2.5 sm:p-4"
+                style={{ animationDelay: `${120 + i * 60}ms` }}
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                  <Icon className="size-[18px]" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink">{title}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted">{sample}</p>
+                </div>
               </li>
             ))}
           </ul>
-          <PrimaryButton onClick={onStart} className="mt-9 w-full max-w-xs">
-            Start
-          </PrimaryButton>
+
+          <div className="animate-in mt-8 flex flex-col items-center" style={{ animationDelay: "320ms" }}>
+            <PrimaryButton onClick={onStart} className="w-full sm:w-72">
+              Start
+              <ArrowRight className="size-4" />
+            </PrimaryButton>
+            <p className="mt-3 hidden text-xs text-subtle sm:block">
+              or press <kbd className="kbd">Enter</kbd>
+            </p>
+            <p className="mt-4 max-w-xs text-center text-xs leading-relaxed text-subtle">
+              No pressure. Wrong answers just help us find the right starting point for you.
+            </p>
+          </div>
         </div>
-      </Centered>
+      </div>
     </>
+  );
+}
+
+const INTRO_FORMATS = [
+  { icon: PenLine, title: "Fill the gap", sample: "I've lived here ___ 2019." },
+  { icon: Headphones, title: "Listen", sample: "Hear it, pick the word" },
+  { icon: SpellCheck, title: "Spot the mistake", sample: "Right or wrong?" },
+];
+
+function LevelScan() {
+  const [active, setActive] = useState(2);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = window.setInterval(() => setActive((a) => (a + 1) % CEFR_LEVELS.length), 650);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <div
+      className="animate-in mt-8 rounded-3xl border border-line bg-surface px-5 pt-5 pb-4 sm:px-7"
+      style={{ animationDelay: "60ms" }}
+      aria-hidden
+    >
+      <div className="flex h-36 items-end justify-between gap-2 sm:gap-3">
+        {CEFR_LEVELS.map((level, i) => {
+          const on = i === active;
+          return (
+            <div key={level} className="flex flex-1 flex-col items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-surface transition-[opacity,transform] duration-300",
+                  on ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
+                )}
+              >
+                You?
+              </span>
+              <span
+                className={cn(
+                  "w-full max-w-11 rounded-xl transition-colors duration-300",
+                  on ? "bg-accent" : "bg-accent/15",
+                )}
+                style={{ height: 22 + i * 15 }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex justify-between gap-2 sm:gap-3">
+        {CEFR_LEVELS.map((level, i) => (
+          <span
+            key={level}
+            className={cn(
+              "flex-1 text-center text-xs font-semibold transition-colors duration-300",
+              i === active ? "text-accent" : "text-subtle",
+            )}
+          >
+            {level}
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 flex justify-between border-t border-line pt-3 text-[11px] text-subtle">
+        <span>Beginner</span>
+        <span>Fluent</span>
+      </div>
+    </div>
   );
 }
 
