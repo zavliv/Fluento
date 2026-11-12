@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 4096
     llm_temperature: float = 0.3
     stt_model: str = "whisper-large-v3-turbo"
+    tts_model: str = "canopylabs/orpheus-v1-english"
+    tts_voice: str = "tara"
     history_limit: int = 40
     stt_max_bytes: int = 25 * 1024 * 1024
 

@@ -172,6 +172,7 @@ class LevelTestOut(BaseModel):
     status: Status
     phase: Phase
     quiz: QuizState | None = None
+    topic: str = ""
     question_count: int
     answered: int
     messages: list[TestMessage]
@@ -340,6 +341,7 @@ def level_test_out(doc: dict) -> LevelTestOut:
         status=doc["status"],
         phase=doc.get("phase", "done" if doc["status"] == "completed" else "chat"),
         quiz=quiz_state(doc),
+        topic=doc.get("topic") or "",
         question_count=doc["question_count"],
         answered=sum(1 for m in messages if m["role"] == "learner"),
         messages=[TestMessage(**m) for m in messages],

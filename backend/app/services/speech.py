@@ -19,3 +19,30 @@ async def transcribe(audio: bytes, filename: str) -> str:
     except groq.GroqError as exc:
         raise TranscriptionError(error_message(exc)) from exc
     return result.text.strip()
+
+
+class SpeechError(Exception):
+    pass
+
+
+MAX_CACHE = 300
+_cache: dict[tuple[str, str, str], bytes] = {}
+
+
+async def synthesize(text: str) -> bytes:
+    app_settings = await get_app_settings()
+    model, voice = app_settings["tts_model"], app_settings["tts_voice"]
+    key = (model, voice, text)
+    if key in _cache:
+        return _cache[key]
+    try:
+        response = await client.audio.speech.create(model=model, voice=voice, input=text, response_format="wav")
+        audio = await response.read()
+    except groq.GroqError as exc:
+        if isinstance(exc, groq.BadRequestError) and "terms" in str(exc):
+            raise SpeechError("The natural voice needs its terms accepted in the Groq console.") from exc
+        raise SpeechError(error_message(exc)) from exc
+    if len(_cache) >= MAX_CACHE:
+        _cache.pop(next(iter(_cache)))
+    _cache[key] = audio
+    return audio

@@ -77,6 +77,7 @@ export type LevelTest = {
   id: string;
   status: "in_progress" | "completed";
   phase: "quiz" | "chat" | "done";
+  topic: string;
   quiz: {
     total: number;
     answered: number;
@@ -171,6 +172,8 @@ export type AppSettings = {
   llm_max_tokens: number;
   history_limit: number;
   stt_model: string;
+  tts_model: string;
+  tts_voice: string;
   default_teacher_id: string;
   signup_enabled: boolean;
   memory_enabled: boolean;
@@ -482,6 +485,26 @@ export async function checkHealth(): Promise<{ online: boolean; model: string | 
   } catch {
     return { online: false, model: null };
   }
+}
+
+const speechCache = new Map<string, Promise<string>>();
+
+export function naturalSpeechUrl(text: string): Promise<string> {
+  const key = text.trim();
+  const cached = speechCache.get(key);
+  if (cached) return cached;
+  const pending = fetch(`${API_URL}/speech`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: key }),
+  }).then(async (res) => {
+    if (!res.ok) throw new Error("Natural voice unavailable");
+    return URL.createObjectURL(await res.blob());
+  });
+  pending.catch(() => speechCache.delete(key));
+  speechCache.set(key, pending);
+  return pending;
 }
 
 export async function transcribeAudio(audio: Blob, filename: string): Promise<string> {

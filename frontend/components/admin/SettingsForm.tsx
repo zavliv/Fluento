@@ -188,6 +188,17 @@ function Form({ initial, teachers }: { initial: AppSettings; teachers: AdminTeac
             </Field>
           </div>
         </Card>
+
+        <Card title="Natural voice" description="The voice that reads questions aloud in the level test.">
+          <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <Field label="Voice model">
+              <Input value={draft.tts_model} onChange={(e) => set("tts_model", e.target.value)} className="font-mono" />
+            </Field>
+            <Field label="Voice" hint="A voice name the model supports.">
+              <Input value={draft.tts_voice} onChange={(e) => set("tts_voice", e.target.value)} className="font-mono" />
+            </Field>
+          </div>
+        </Card>
       </div>
     </>
   );

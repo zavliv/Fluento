@@ -13,6 +13,8 @@ DEFAULTS = {
     "llm_max_tokens": settings.llm_max_tokens,
     "history_limit": settings.history_limit,
     "stt_model": settings.stt_model,
+    "tts_model": settings.tts_model,
+    "tts_voice": settings.tts_voice,
     "default_teacher_id": "maya",
     "signup_enabled": True,
     "memory_enabled": True,

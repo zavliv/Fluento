@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.db import db
@@ -7,7 +8,7 @@ from app.schemas.settings import PublicSettings
 from app.schemas.teachers import TeacherPublic, teacher_public
 from app.security import current_user
 from app.services.app_settings import get_app_settings
-from app.services.speech import TranscriptionError, transcribe
+from app.services.speech import SpeechError, TranscriptionError, synthesize, transcribe
 
 router = APIRouter(tags=["public"])
 
@@ -40,3 +41,16 @@ async def transcribe_audio(file: UploadFile) -> TranscriptionResponse:
     except TranscriptionError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return TranscriptionResponse(text=text)
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=600)
+
+
+@router.post("/speech", dependencies=[Depends(current_user)])
+async def speech(body: SpeechRequest) -> Response:
+    try:
+        audio = await synthesize(" ".join(body.text.split()))
+    except SpeechError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return Response(content=audio, media_type="audio/wav", headers={"Cache-Control": "private, max-age=86400"})

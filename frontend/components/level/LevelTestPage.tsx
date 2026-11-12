@@ -1,21 +1,22 @@
 "use client";
 
-import { ArrowRight, Check, LoaderCircle, Mic, RotateCcw, Shuffle } from "lucide-react";
+import { ArrowRight, Award, LoaderCircle, Mic, PartyPopper, Shuffle, Trophy, Zap } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, CEFR_LEVELS, LEVEL_NAMES, type CefrLevel, type LevelTest, type LevelTestState } from "@/lib/api";
 import type { Teacher } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
-import { Composer } from "../Composer";
 import { useToast } from "../ui/Toast";
+import { ChatRound } from "./ChatRound";
 import { ResultView } from "./Results";
-import { ExaminerAvatar, LevelBadge, PrimaryButton, SecondaryButton, Shell, when } from "./shared";
-import { JourneyBar, WarmUp } from "./WarmUp";
+import { Centered, FocusBar, LevelBadge, PrimaryButton, when } from "./shared";
+import { WarmUp } from "./WarmUp";
 
 type Props = {
   teachers: Teacher[];
   onOpenTeacher: (teacherId: string) => void;
   onPractise: (teacherId: string, text: string) => void;
   onCompleted: () => void;
+  onClose: () => void;
 };
 
 type Phase = "intro" | "topic" | "test" | "interlude" | "reveal" | "result";
@@ -39,7 +40,7 @@ const GRADING_LINES = [
   "Almost there…",
 ];
 
-export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted }: Props) {
+export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted, onClose }: Props) {
   const toast = useToast();
   const [state, setState] = useState<LevelTestState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -72,8 +73,7 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
   const start = async (topic: string) => {
     setBusy(true);
     try {
-      const created = await api.startLevelTest(topic);
-      setTest(created);
+      setTest(await api.startLevelTest(topic));
       setError(null);
       setPhase("test");
     } catch (err) {
@@ -88,25 +88,26 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
     if (next.phase !== "quiz") setPhase("interlude");
   };
 
-  const answerChat = async (text: string, voice: boolean) => {
-    if (!test || busy) return;
+  const answerChat = async (text: string, voice: boolean): Promise<boolean> => {
+    if (!test || busy) return false;
     const before = test;
-    const optimistic: LevelTest = {
+    const last = test.answered + 1 >= test.question_count;
+    setTest({
       ...test,
       answered: test.answered + 1,
-      messages: [...test.messages, { role: "learner", content: text.trim(), mode: voice ? "voice" : "typed" }],
-    };
-    const last = optimistic.answered >= test.question_count;
-    setTest(optimistic);
+      messages: [...test.messages, { role: "learner", content: text, mode: voice ? "voice" : "typed" }],
+    });
     setBusy(true);
     setError(null);
     try {
       const next = await api.answerLevelTest(test.id, text, voice ? "voice" : "typed");
       if (next.status === "completed") finished(next);
       else setTest(next);
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       if (!last) setTest(before);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -125,22 +126,25 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
     }
   };
 
-  const pause = () => {
-    setState((s) => (s && test?.status === "in_progress" ? { ...s, current: test } : s));
-    setPhase("intro");
+  const leave = () => {
+    window.speechSynthesis?.cancel();
+    onClose();
   };
 
   if (loadError) {
     return (
-      <Shell>
-        <p className="rounded-xl border border-danger/25 bg-danger/6 px-4 py-3 text-sm text-danger">{loadError}</p>
-      </Shell>
+      <>
+        <FocusBar onClose={leave} />
+        <Centered>
+          <p className="rounded-xl bg-danger/8 px-4 py-3 text-sm text-danger">{loadError}</p>
+        </Centered>
+      </>
     );
   }
   if (!state) {
     return (
       <div className="flex flex-1 items-center justify-center text-subtle">
-        <LoaderCircle className="size-5 animate-spin" aria-label="Loading" />
+        <LoaderCircle className="size-6 animate-spin" aria-label="Loading" />
       </div>
     );
   }
@@ -162,26 +166,20 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
         test={test}
         onAnswer={(choice) => api.answerLevelQuiz(test.id, choice)}
         onAdvance={advanceWarmUp}
-        onPause={pause}
+        onClose={leave}
       />
     );
   }
 
   if (phase === "interlude" && test) {
-    return <Interlude test={test} onContinue={() => setPhase("test")} />;
+    return <Interlude test={test} onContinue={() => setPhase("test")} onClose={leave} />;
   }
 
-  if ((phase === "test" || phase === "interlude") && test) {
-    return (
-      <ChatRound
-        test={test}
-        busy={busy}
-        error={error}
-        onAnswer={(text, voice) => void answerChat(text, voice)}
-        onRetryGrading={() => void retryGrading()}
-        onPause={pause}
-      />
-    );
+  if (phase === "test" && test) {
+    if (test.answered >= test.question_count) {
+      return <Grading busy={busy} error={error} onRetry={() => void retryGrading()} onClose={leave} />;
+    }
+    return <ChatRound test={test} busy={busy} error={error} onAnswer={answerChat} onClose={leave} />;
   }
 
   if (phase === "reveal" && test?.result) {
@@ -198,7 +196,7 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
         onOpenTeacher={onOpenTeacher}
         onPractise={onPractise}
         onRetake={() => setPhase("topic")}
-        retaking={busy}
+        onClose={leave}
       />
     );
   }
@@ -206,11 +204,12 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
   return (
     <Intro
       state={state}
+      onClose={leave}
       onStart={() => setPhase("topic")}
       onResume={(current) => {
         setTest(current);
         setError(null);
-        setPhase("test");
+        setPhase(current.phase === "chat" && current.answered === 0 && current.quiz ? "interlude" : "test");
       }}
       onShowResult={() => {
         setTest(state.latest);
@@ -220,15 +219,15 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
   );
 }
 
-// Intro
-
 function Intro({
   state,
+  onClose,
   onStart,
   onResume,
   onShowResult,
 }: {
   state: LevelTestState;
+  onClose: () => void;
   onStart: () => void;
   onResume: (test: LevelTest) => void;
   onShowResult: () => void;
@@ -238,87 +237,87 @@ function Intro({
     3,
     Math.round((config.quiz_enabled ? config.quiz_count * 0.25 : 0) + config.question_count * 0.8),
   );
-  const stops = [
-    ...(config.quiz_enabled ? [{ title: "Warm-up", text: `${config.quiz_count} quick rounds` }] : []),
-    { title: "Chat", text: `${config.question_count} questions on a topic you pick` },
-    { title: "Your level", text: "Plus your perfect teacher" },
+  const facts = [
+    ...(config.quiz_enabled ? [{ icon: Zap, text: `${config.quiz_count} quick rounds` }] : []),
+    { icon: Mic, text: `${config.question_count} questions to answer` },
+    { icon: Award, text: "Level A1 to C2" },
   ];
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && config.enabled && !(e.target as HTMLElement)?.closest("button")) {
+        if (current) onResume(current);
+        else onStart();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [config.enabled, current, onResume, onStart]);
+
   return (
-    <Shell>
-      <div className="animate-in rounded-3xl border border-line bg-surface px-6 py-10 text-center md:px-12 md:py-14">
-        <p className="text-sm font-semibold text-accent">About {minutes} minutes · no pressure</p>
-        <h1 className="mx-auto mt-3 max-w-lg text-[34px] leading-[1.1] font-bold tracking-[-0.03em] text-ink md:text-[44px]">
-          How good is your English, really?
-        </h1>
-        <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-muted">
-          Play a few quick rounds, then chat about something you love. We&apos;ll find your level from A1 to C2.
-        </p>
-
-        <ol className="mx-auto mt-9 flex max-w-xl items-start justify-center">
-          {stops.map((stop, i) => (
-            <li key={stop.title} className="relative flex flex-1 flex-col items-center px-2">
-              {i > 0 && <span className="absolute top-4 right-1/2 -left-1/2 h-0.5 bg-line" aria-hidden />}
-              <span className="relative z-10 flex size-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-ink ring-4 ring-surface">
-                {i + 1}
-              </span>
-              <span className="mt-2 text-sm font-semibold text-ink">{stop.title}</span>
-              <span className="mt-0.5 text-xs leading-snug text-muted">{stop.text}</span>
-            </li>
-          ))}
-        </ol>
-
-        {!config.enabled ? (
-          <p className="mx-auto mt-9 max-w-sm rounded-xl bg-hover px-4 py-3 text-sm text-muted">
-            The level test is turned off right now. Please check back later.
+    <>
+      <FocusBar
+        onClose={onClose}
+        right={
+          latest?.result && (
+            <button
+              type="button"
+              onClick={onShowResult}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent-soft px-3.5 text-xs font-semibold text-accent transition-opacity hover:opacity-80"
+            >
+              Last result · {latest.result.level}
+              <ArrowRight className="size-3.5" />
+            </button>
+          )
+        }
+      />
+      <Centered>
+        <div className="animate-in">
+          <span className="mx-auto flex size-16 items-center justify-center rounded-[20px] bg-accent-soft text-accent">
+            <Trophy className="size-8" />
+          </span>
+          <h1 className="mt-6 text-[32px] leading-tight font-bold tracking-[-0.03em] text-ink md:text-[38px]">
+            Find your English level
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-[16px] leading-relaxed text-muted">
+            A quick game, then a short chat about something you enjoy. About {minutes} minutes.
           </p>
-        ) : (
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            {current ? (
-              <>
-                <PrimaryButton onClick={() => onResume(current)}>
-                  Continue where you left off
-                  <ArrowRight className="size-4" />
-                </PrimaryButton>
-                <SecondaryButton onClick={onStart}>
-                  <RotateCcw className="size-4" />
-                  Start over
-                </SecondaryButton>
-              </>
-            ) : (
-              <PrimaryButton onClick={onStart}>
-                {latest ? "Play again" : "Let's go"}
-                <ArrowRight className="size-4" />
-              </PrimaryButton>
-            )}
-          </div>
-        )}
-      </div>
 
-      {latest?.result && (
-        <button
-          type="button"
-          onClick={onShowResult}
-          className="mt-4 flex w-full items-center gap-4 rounded-2xl border border-line bg-surface p-4 text-left transition-colors hover:border-accent/40"
-        >
-          <LevelBadge level={latest.result.level} />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-ink">
-              Last result: {latest.result.level} · {LEVEL_NAMES[latest.result.level]}
-            </span>
-            <span className="block text-sm text-muted">Tested {when(latest.completed_at ?? latest.created_at)}</span>
-          </span>
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-ink">
-            See result
-            <ArrowRight className="size-4" />
-          </span>
-        </button>
-      )}
-    </Shell>
+          <ul className="mt-8 flex flex-wrap justify-center gap-x-7 gap-y-2 text-sm text-muted">
+            {facts.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-2">
+                <Icon className="size-4 text-accent" />
+                {text}
+              </li>
+            ))}
+          </ul>
+
+          {!config.enabled ? (
+            <p className="mx-auto mt-10 max-w-sm rounded-xl bg-hover px-4 py-3 text-sm text-muted">
+              The level test is turned off right now. Please check back later.
+            </p>
+          ) : current ? (
+            <div className="mx-auto mt-10 flex max-w-xs flex-col gap-3">
+              <PrimaryButton onClick={() => onResume(current)}>Continue where you left off</PrimaryButton>
+              <button type="button" onClick={onStart} className="text-sm font-semibold text-muted hover:text-ink">
+                Start a new test
+              </button>
+            </div>
+          ) : (
+            <PrimaryButton onClick={onStart} className="mt-10 w-full max-w-xs">
+              {latest ? "Take it again" : "Start"}
+            </PrimaryButton>
+          )}
+          {latest?.result && !current && (
+            <p className="mt-4 text-xs text-subtle">
+              Last tested {when(latest.completed_at ?? latest.created_at)} at {latest.result.level}
+            </p>
+          )}
+        </div>
+      </Centered>
+    </>
   );
 }
-
-// Topic
 
 function TopicPicker({
   topics,
@@ -339,66 +338,60 @@ function TopicPicker({
   };
 
   return (
-    <Shell>
-      <div className="animate-in text-center">
-        <p className="text-sm font-semibold text-accent">Before we start</p>
-        <h1 className="mt-2 text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[34px]">
-          What do you love talking about?
-        </h1>
-        <p className="mx-auto mt-2 max-w-md text-[15px] text-muted">
-          Pick a topic. The chat part of your test will be all about it.
-        </p>
-      </div>
+    <>
+      <FocusBar onClose={onBack} closeLabel="Back" />
+      <Centered className="max-w-2xl">
+        <div className="animate-in">
+          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[32px]">
+            What do you like talking about?
+          </h1>
+          <p className="mt-2 text-[16px] text-muted">Your chat questions will be about this.</p>
+        </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {topics.map((topic, i) => {
-          const chosen = picked === topic;
-          return (
-            <button
-              key={topic}
-              type="button"
-              onClick={() => pick(topic)}
-              disabled={busy}
-              style={{ animationDelay: `${i * 40}ms` }}
-              className={cn(
-                "animate-in flex h-28 flex-col items-center justify-center gap-2 rounded-2xl border bg-surface px-3 text-center transition-all",
-                chosen
-                  ? "border-accent bg-accent-soft"
-                  : "border-line hover:-translate-y-0.5 hover:border-accent/50 disabled:opacity-50",
-              )}
-            >
-              <span className="text-[28px] leading-none" aria-hidden>
-                {chosen && busy ? (
-                  <LoaderCircle className="size-7 animate-spin text-accent" />
-                ) : (
-                  (TOPIC_EMOJI[topic.toLowerCase()] ?? "💬")
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {topics.map((topic, i) => {
+            const chosen = picked === topic;
+            return (
+              <button
+                key={topic}
+                type="button"
+                onClick={() => pick(topic)}
+                disabled={busy}
+                style={{ animationDelay: `${i * 35}ms` }}
+                className={cn(
+                  "animate-in flex h-28 flex-col items-center justify-center gap-2.5 rounded-2xl border-2 bg-surface px-3 transition-all",
+                  chosen ? "border-accent bg-accent-soft" : "border-line hover:-translate-y-0.5 hover:border-accent/50",
+                  busy && !chosen && "opacity-50",
                 )}
-              </span>
-              <span className="text-sm font-semibold text-ink">{topic}</span>
-            </button>
-          );
-        })}
-      </div>
+              >
+                <span className="text-[30px] leading-none" aria-hidden>
+                  {chosen && busy ? (
+                    <LoaderCircle className="size-7 animate-spin text-accent" />
+                  ) : (
+                    (TOPIC_EMOJI[topic.toLowerCase()] ?? "💬")
+                  )}
+                </span>
+                <span className="text-sm font-semibold text-ink">{topic}</span>
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="mt-6 flex items-center justify-center gap-3">
-        <SecondaryButton onClick={onBack} disabled={busy}>
-          Back
-        </SecondaryButton>
-        <SecondaryButton
+        <button
+          type="button"
           onClick={() => topics.length && pick(topics[Math.floor(Math.random() * topics.length)])}
           disabled={busy || topics.length === 0}
+          className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-muted hover:text-ink disabled:opacity-50"
         >
           <Shuffle className="size-4" />
           Surprise me
-        </SecondaryButton>
-      </div>
-    </Shell>
+        </button>
+      </Centered>
+    </>
   );
 }
 
-// Interlude
-
-function Interlude({ test, onContinue }: { test: LevelTest; onContinue: () => void }) {
+function Interlude({ test, onContinue, onClose }: { test: LevelTest; onContinue: () => void; onClose: () => void }) {
   const quiz = test.quiz;
   const score = quiz ? quiz.correct / Math.max(1, quiz.total) : 0;
   const title = score >= 0.85 ? "Impressive!" : score >= 0.6 ? "Great warm-up!" : "Warm-up done!";
@@ -412,185 +405,84 @@ function Interlude({ test, onContinue }: { test: LevelTest; onContinue: () => vo
   }, [onContinue]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <JourneyBar
-        stage="chat"
-        warm={quiz ? { done: quiz.total, total: quiz.total } : null}
-        chat={{ done: 0, total: test.question_count }}
-      />
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-10">
-        <div className="animate-in w-full max-w-md text-center">
-          <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-success/12 text-success">
-            <Check className="size-8" strokeWidth={2.5} />
+    <>
+      <FocusBar onClose={onClose} progress={0} />
+      <Centered>
+        <div className="animate-in">
+          <span className="mx-auto flex size-16 items-center justify-center rounded-[20px] bg-success/12 text-success">
+            <PartyPopper className="size-8" />
           </span>
-          <h1 className="mt-5 text-[30px] leading-tight font-bold tracking-[-0.025em] text-ink">{title}</h1>
+          <h1 className="mt-6 text-[32px] leading-tight font-bold tracking-[-0.03em] text-ink">{title}</h1>
           {quiz && (
-            <p className="mt-2 text-[15px] text-muted">
-              You got{" "}
-              <span className="font-semibold text-ink">
-                {quiz.correct} of {quiz.total}
-              </span>{" "}
-              and reached <span className="font-semibold text-ink">{quiz.climb}</span> on the difficulty ladder.
-            </p>
+            <div className="mx-auto mt-6 grid max-w-xs grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-hover px-4 py-3">
+                <p className="text-2xl font-bold text-ink tabular-nums">
+                  {quiz.correct}/{quiz.total}
+                </p>
+                <p className="text-xs text-muted">right answers</p>
+              </div>
+              <div className="rounded-2xl bg-hover px-4 py-3">
+                <p className="text-2xl font-bold text-ink">{quiz.climb}</p>
+                <p className="text-xs text-muted">hardest level reached</p>
+              </div>
+            </div>
           )}
-          <div className="mt-7 rounded-2xl border border-line bg-surface p-5 text-left">
-            <p className="text-xs font-semibold tracking-wider text-subtle uppercase">Next up · Chat</p>
-            <p className="mt-2 text-sm leading-relaxed text-ink">
-              {test.question_count} friendly questions. Answer in your own words, there are no wrong answers here.
-            </p>
-            <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-              <Mic className="size-4 text-accent" />
-              Try speaking your answers: it&apos;s great practice and it counts.
-            </p>
-          </div>
-          <PrimaryButton onClick={onContinue} className="mt-7">
+          <p className="mx-auto mt-8 max-w-sm text-[16px] leading-relaxed text-muted">
+            Now a short chat{test.topic ? ` about ${test.topic.toLowerCase()}` : ""}. Answer out loud with the mic, or
+            type if you prefer.
+          </p>
+          <PrimaryButton onClick={onContinue} className="mt-8 w-full max-w-xs">
             Let&apos;s chat
-            <ArrowRight className="size-4" />
           </PrimaryButton>
         </div>
-      </div>
-    </div>
+      </Centered>
+    </>
   );
 }
 
-// Chat
-
-function ChatRound({
-  test,
+function Grading({
   busy,
   error,
-  onAnswer,
-  onRetryGrading,
-  onPause,
+  onRetry,
+  onClose,
 }: {
-  test: LevelTest;
   busy: boolean;
   error: string | null;
-  onAnswer: (text: string, voice: boolean) => void;
-  onRetryGrading: () => void;
-  onPause: () => void;
+  onRetry: () => void;
+  onClose: () => void;
 }) {
-  const end = useRef<HTMLDivElement>(null);
-  const allAnswered = test.answered >= test.question_count;
   const [line, setLine] = useState(0);
-
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [test.messages.length, busy]);
-
-  useEffect(() => {
-    if (!(busy && allAnswered)) return;
+    if (!busy) return;
     const timer = window.setInterval(() => setLine((l) => Math.min(l + 1, GRADING_LINES.length - 1)), 1800);
-    return () => {
-      window.clearInterval(timer);
-      setLine(0);
-    };
-  }, [busy, allAnswered]);
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <JourneyBar
-        stage="chat"
-        warm={test.quiz ? { done: test.quiz.total, total: test.quiz.total } : null}
-        chat={{ done: test.answered, total: test.question_count }}
-        onPause={allAnswered ? undefined : onPause}
-      />
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 md:px-6">
-          {test.messages.map((m, i) =>
-            m.role === "examiner" ? (
-              <div key={i} className="animate-in flex max-w-[85%] gap-3">
-                <ExaminerAvatar />
-                <p className="rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-2.5 text-[15px] leading-relaxed text-ink">
-                  {m.content}
-                </p>
-              </div>
-            ) : (
-              <div key={i} className="animate-in flex max-w-[85%] flex-col items-end self-end">
-                <p className="rounded-2xl rounded-tr-md bg-hover px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-ink">
-                  {m.content}
-                </p>
-                {m.mode === "voice" && (
-                  <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-subtle">
-                    <Mic className="size-3" />
-                    Spoken
-                  </span>
-                )}
-              </div>
-            ),
-          )}
-
-          {busy && (
-            <div className="flex items-center gap-3">
-              <ExaminerAvatar />
-              {allAnswered ? (
-                <span key={line} className="animate-in flex items-center gap-2 text-sm text-muted">
-                  <LoaderCircle className="size-4 animate-spin" />
-                  {GRADING_LINES[line]}
-                </span>
-              ) : (
-                <span className="flex gap-1 rounded-2xl border border-line bg-surface px-4 py-3.5" aria-label="Typing">
-                  {[0, 1, 2].map((d) => (
-                    <span
-                      key={d}
-                      className="size-1.5 animate-bounce rounded-full bg-subtle"
-                      style={{ animationDelay: `${d * 120}ms` }}
-                    />
-                  ))}
-                </span>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-danger/25 bg-danger/6 px-4 py-3 text-sm text-danger" role="alert">
-              {error}
-              {allAnswered && (
-                <button
-                  type="button"
-                  onClick={onRetryGrading}
-                  className="ml-2 font-semibold text-ink underline-offset-4 hover:underline"
-                >
-                  Try again
-                </button>
-              )}
-            </div>
-          )}
-          <div ref={end} />
-        </div>
-      </div>
-
-      {!allAnswered && (
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 md:px-6">
-          <div className="mb-2 flex justify-center gap-1.5" aria-hidden>
-            {Array.from({ length: test.question_count }, (_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  i < test.answered ? "w-5 bg-accent" : i === test.answered ? "w-5 bg-ink" : "w-1.5 bg-line",
-                )}
-              />
-            ))}
+    <>
+      <FocusBar onClose={onClose} progress={100} />
+      <Centered>
+        {error && !busy ? (
+          <div className="animate-in">
+            <h1 className="text-[24px] font-bold tracking-[-0.02em] text-ink">We couldn&apos;t finish grading</h1>
+            <p className="mt-2 text-[15px] text-muted">{error}</p>
+            <PrimaryButton onClick={onRetry} className="mt-8 w-full max-w-xs">
+              Try again
+            </PrimaryButton>
           </div>
-          <Composer
-            key={test.id}
-            onSend={(text, meta) => onAnswer(text, meta.voice)}
-            onStop={() => {}}
-            isStreaming={busy}
-            autoFocus
-            placeholder="Type or speak your answer…"
-            hint="No wrong answers here. Speaking counts too: tap the mic."
-            stoppable={false}
-          />
-        </div>
-      )}
-    </div>
+        ) : (
+          <div>
+            <LoaderCircle className="mx-auto size-10 animate-spin text-accent" />
+            <p key={line} className="animate-in mt-6 text-[17px] text-ink">
+              {GRADING_LINES[line]}
+            </p>
+            <p className="mt-1 text-sm text-muted">This takes a few seconds.</p>
+          </div>
+        )}
+      </Centered>
+    </>
   );
 }
-
-// Reveal
 
 const CONFETTI_COLORS = ["#0d9488", "#f59e0b", "#e11d48", "#6366f1", "#22c55e", "#0ea5e9"];
 
@@ -600,9 +492,9 @@ function Confetti() {
     const root = box.current;
     if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const pieces: HTMLSpanElement[] = [];
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 100; i++) {
       const piece = document.createElement("span");
-      const size = 6 + Math.random() * 6;
+      const size = 6 + Math.random() * 7;
       Object.assign(piece.style, {
         position: "absolute",
         top: "-20px",
@@ -614,7 +506,7 @@ function Confetti() {
       });
       root.appendChild(piece);
       pieces.push(piece);
-      const drift = (Math.random() - 0.5) * 240;
+      const drift = (Math.random() - 0.5) * 260;
       piece.animate(
         [
           { transform: "translate(0, 0) rotate(0deg)", opacity: 1 },
@@ -624,8 +516,8 @@ function Confetti() {
           },
         ],
         {
-          duration: 2200 + Math.random() * 1800,
-          delay: Math.random() * 500,
+          duration: 2600 + Math.random() * 2000,
+          delay: Math.random() * 600,
           easing: "cubic-bezier(.2,.6,.4,1)",
           fill: "forwards",
         },
@@ -643,29 +535,36 @@ function Reveal({ level, onDone }: { level: CefrLevel; onDone: () => void }) {
 
   useEffect(() => {
     if (landed) return;
-    const timer = window.setTimeout(() => setStep((s) => s + 1), 420);
+    const timer = window.setTimeout(() => setStep((s) => s + 1), 450);
     return () => window.clearTimeout(timer);
   }, [step, landed]);
 
-  const shownLevel = CEFR_LEVELS[Math.min(step, target)];
+  useEffect(() => {
+    if (!landed) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter") onDone();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [landed, onDone]);
+
+  const shown = CEFR_LEVELS[Math.min(step, target)];
 
   return (
-    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-4">
+    <div className="relative flex min-h-0 flex-1 overflow-hidden">
       {landed && <Confetti />}
-      <div className="relative w-full max-w-md text-center">
-        <p className="text-sm font-semibold tracking-wider text-subtle uppercase">
-          {landed ? "Your English level" : "Climbing…"}
-        </p>
-        <div
-          key={shownLevel}
-          className={cn(
-            "animate-in mx-auto mt-5 flex size-32 items-center justify-center rounded-[32px] text-[52px] font-bold tracking-[-0.03em] transition-colors",
-            landed ? "bg-accent text-accent-ink shadow-lg" : "bg-hover text-ink",
+      <div className="relative m-auto w-full max-w-md px-5 text-center">
+        <p className="text-sm font-semibold text-muted">{landed ? "Your English level" : "Working out your level…"}</p>
+        <div key={shown} className="animate-in mt-6 flex justify-center">
+          {landed ? (
+            <LevelBadge level={level} size="xl" />
+          ) : (
+            <span className="flex size-32 items-center justify-center rounded-[32px] bg-hover text-[52px] font-bold tracking-[-0.03em] text-ink">
+              {shown}
+            </span>
           )}
-        >
-          {shownLevel}
         </div>
-        <div className="mx-auto mt-6 flex max-w-xs gap-1">
+        <div className="mx-auto mt-7 flex max-w-xs gap-1.5">
           {CEFR_LEVELS.map((l, i) => (
             <span
               key={l}
@@ -677,12 +576,12 @@ function Reveal({ level, onDone }: { level: CefrLevel; onDone: () => void }) {
           ))}
         </div>
         <div className={cn("transition-opacity duration-500", landed ? "opacity-100" : "opacity-0")}>
-          <h1 className="mt-6 text-[30px] leading-tight font-bold tracking-[-0.025em] text-ink">
-            You&apos;re {LEVEL_NAMES[level]}!
+          <h1 className="mt-7 text-[30px] leading-tight font-bold tracking-[-0.025em] text-ink">
+            You&apos;re {LEVEL_NAMES[level]}
           </h1>
           <p className="mt-2 text-[15px] text-muted">Your teachers will now pitch their English at {level}.</p>
-          <PrimaryButton onClick={onDone} className="mt-7" disabled={!landed}>
-            See my full results
+          <PrimaryButton onClick={onDone} className="mt-8 w-full max-w-xs" disabled={!landed}>
+            See my results
             <ArrowRight className="size-4" />
           </PrimaryButton>
         </div>

@@ -240,6 +240,20 @@ export default function ChatApp() {
     );
   }
 
+  if (view === "level") {
+    return (
+      <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
+        <LevelTestPage
+          teachers={teachers}
+          onOpenTeacher={openTeacher}
+          onPractise={practiseWith}
+          onCompleted={() => void refreshUser()}
+          onClose={() => setView("chat")}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
       <Sidebar
@@ -257,7 +271,7 @@ export default function ChatApp() {
         mistakesOpen={view === "mistakes"}
         mistakeCount={mistakes.summary?.open ?? null}
         onOpenMistakes={openMistakes}
-        levelOpen={view === "level"}
+        levelOpen={false}
         onOpenLevelTest={openLevelTest}
         theme={theme}
         onThemeChange={setTheme}
@@ -273,21 +287,14 @@ export default function ChatApp() {
           typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
-          title={view === "mistakes" ? "My mistakes" : view === "level" ? "Level test" : undefined}
+          title={view === "mistakes" ? "My mistakes" : undefined}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onShowTeachers={() => openTeacher(null)}
           onExport={exportCurrent}
           onClear={clearConversation}
         />
 
-        {view === "level" && !active ? (
-          <LevelTestPage
-            teachers={teachers}
-            onOpenTeacher={openTeacher}
-            onPractise={practiseWith}
-            onCompleted={() => void refreshUser()}
-          />
-        ) : view === "mistakes" && !active ? (
+        {view === "mistakes" && !active ? (
           <MistakesPage
             teachers={teachers}
             summary={mistakes.summary}
