@@ -1,9 +1,9 @@
 "use client";
 
-import { Eye, LoaderCircle, RotateCcw, Save, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Eye, LoaderCircle, RefreshCw, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useLoad } from "@/hooks/useLoad";
-import { api, CEFR_LEVELS, LEVEL_NAMES, type LevelTest, type LevelTestConfig } from "@/lib/api";
+import { api, CEFR_LEVELS, LEVEL_NAMES, type CefrLevel, type LevelTest, type LevelTestConfig } from "@/lib/api";
 import { IconButton } from "../IconButton";
 import { Dialog } from "../ui/Dialog";
 import { Switch } from "../ui/Switch";
@@ -33,7 +33,10 @@ export function LevelTestAdmin() {
       />
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <ConfigForm initial={config} />
+        <div className="min-w-0 space-y-5">
+          <ConfigForm initial={config} />
+          <QuestionBank />
+        </div>
 
         <div className="space-y-5">
           <Card title="Learner levels" description={`Latest result for ${total} learner${total === 1 ? "" : "s"}`}>
@@ -51,6 +54,22 @@ export function LevelTestAdmin() {
                 </li>
               ))}
             </ul>
+          </Card>
+          <Card title="Insights">
+            <dl className="grid grid-cols-2 gap-4 p-5">
+              <div>
+                <dt className="text-xs text-muted">Average quick check</dt>
+                <dd className="mt-1 text-xl font-bold text-ink">
+                  {results.average_quiz_score == null ? "–" : `${Math.round(results.average_quiz_score * 100)}%`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted">Answers spoken</dt>
+                <dd className="mt-1 text-xl font-bold text-ink">
+                  {results.spoken_share == null ? "–" : `${Math.round(results.spoken_share * 100)}%`}
+                </dd>
+              </div>
+            </dl>
           </Card>
           <Results tests={results.tests} names={names} />
         </div>
@@ -97,7 +116,31 @@ function ConfigForm({ initial }: { initial: LevelTestConfig }) {
           <Switch checked={draft.enabled} onChange={(v) => set("enabled", v)} label="Level test available" />
         </div>
 
-        <Field label="Number of questions" hint="Between 3 and 12. More questions give a more reliable result.">
+        <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">Quick check quiz</p>
+            <p className="text-xs text-muted">
+              Part 1: adaptive multiple-choice grammar and vocabulary questions from the question bank.
+            </p>
+          </div>
+          <Switch checked={draft.quiz_enabled} onChange={(v) => set("quiz_enabled", v)} label="Quick check quiz" />
+        </div>
+
+        {draft.quiz_enabled && (
+          <Field label="Quiz questions" hint="Between 4 and 12.">
+            <div className="w-28">
+              <Input
+                type="number"
+                min={4}
+                max={12}
+                value={draft.quiz_count}
+                onChange={(e) => set("quiz_count", Number(e.target.value))}
+              />
+            </div>
+          </Field>
+        )}
+
+        <Field label="Conversation questions" hint="Between 3 and 12. More questions give a more reliable result.">
           <div className="w-28">
             <Input
               type="number"
@@ -111,7 +154,7 @@ function ConfigForm({ initial }: { initial: LevelTestConfig }) {
 
         <Field
           label="Examiner prompt"
-          hint="Writes each question. Placeholders: {app}, {name} (learner's first name), {count}, {number} (current question)."
+          hint="Writes each conversation question. Placeholders: {app}, {name} (learner's first name), {count}, {number} (current question), {start_level} (the quiz estimate)."
         >
           <Textarea
             rows={12}
@@ -123,7 +166,7 @@ function ConfigForm({ initial }: { initial: LevelTestConfig }) {
 
         <Field
           label="Grading prompt"
-          hint="Grades the finished chat and must ask for the JSON keys shown. Placeholder: {teachers} (visible teachers, for the recommendation)."
+          hint="How to judge the learner. The required JSON format, teacher list, quiz results and transcript are added automatically."
         >
           <Textarea
             rows={14}
@@ -204,6 +247,7 @@ function Results({
                 <p className="truncate text-sm font-semibold text-ink">{t.user_name}</p>
                 <p className="truncate text-xs text-muted">
                   {timeAgo(t.completed_at)}
+                  {t.quiz_total ? ` · quiz ${t.quiz_correct}/${t.quiz_total}` : ""}
                   {t.recommended_teacher_id &&
                     ` · matched with ${names[t.recommended_teacher_id] ?? t.recommended_teacher_id}`}
                 </p>
@@ -245,6 +289,122 @@ function Results({
           </>
         )}
       </Dialog>
+    </Card>
+  );
+}
+
+function QuestionBank() {
+  const toast = useToast();
+  const load = useCallback(() => api.admin.quizBank(), []);
+  const { data, loading, error, reload, setData } = useLoad(load);
+  const [level, setLevel] = useState<CefrLevel>("B1");
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!data?.refilling) return;
+    const timer = window.setInterval(reload, 8000);
+    return () => window.clearInterval(timer);
+  }, [data?.refilling, reload]);
+
+  const remove = async (id: string) => {
+    setData((d) => (d ? { ...d, questions: d.questions.filter((q) => q.id !== id) } : d));
+    try {
+      await api.admin.deleteQuizQuestion(id);
+      toast({ message: "Question removed. A replacement will be generated." });
+    } catch (err) {
+      reload();
+      toast({ message: err instanceof Error ? err.message : "Couldn't remove the question" });
+    }
+  };
+
+  const refresh = async () => {
+    setConfirming(false);
+    try {
+      await api.admin.refreshQuizBank();
+      toast({ message: "Generating a fresh question bank. This takes a few minutes." });
+      reload();
+    } catch (err) {
+      toast({ message: err instanceof Error ? err.message : "Couldn't refresh the bank" });
+    }
+  };
+
+  if (loading && !data) return <LoadingState />;
+  if (error && !data) return <ErrorState message={error} onRetry={reload} />;
+  if (!data) return null;
+  const shown = data.questions.filter((q) => q.level === level);
+
+  return (
+    <Card
+      title="Question bank"
+      description="Quiz questions are written by AI, then solved again blind; only questions with exactly one correct answer are kept. The bank refills itself."
+    >
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+        <div className="flex flex-wrap gap-1">
+          {CEFR_LEVELS.map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => setLevel(l)}
+              className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                l === level ? "bg-ink text-bg" : "text-muted hover:bg-hover hover:text-ink"
+              }`}
+            >
+              {l} <span className="font-normal opacity-70">{data.counts[l]}</span>
+            </button>
+          ))}
+        </div>
+        <span className="ml-auto flex items-center gap-2">
+          {data.refilling && (
+            <span className="flex items-center gap-1.5 text-xs text-muted">
+              <LoaderCircle className="size-3.5 animate-spin" />
+              Adding questions…
+            </span>
+          )}
+          {confirming ? (
+            <>
+              <Button className="h-8 px-3 text-xs" onClick={() => setConfirming(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                className="h-8 border border-danger/40 px-3 text-xs"
+                onClick={() => void refresh()}
+              >
+                Replace all
+              </Button>
+            </>
+          ) : (
+            <Button className="h-8 px-3 text-xs" onClick={() => setConfirming(true)}>
+              <RefreshCw />
+              Regenerate
+            </Button>
+          )}
+        </span>
+      </div>
+      {shown.length === 0 ? (
+        <p className="px-5 py-6 text-sm text-muted">No {level} questions yet.</p>
+      ) : (
+        <ul className="max-h-[420px] divide-y divide-line overflow-y-auto">
+          {shown.map((q) => (
+            <li key={q.id} className="group flex items-start gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="text-ink">{q.question}</p>
+                <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                  <span className="text-subtle capitalize">{q.skill}</span>
+                  {q.options.map((o, i) => (
+                    <span key={o} className={i === q.answer_index ? "font-semibold text-success" : ""}>
+                      {o}
+                    </span>
+                  ))}
+                </p>
+              </div>
+              <IconButton label="Remove question" onClick={() => void remove(q.id)}>
+                <Trash2 />
+              </IconButton>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

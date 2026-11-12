@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatDuration, VoiceRecorderBar } from "./VoiceRecorderBar";
 
 type Props = {
-  onSend: (text: string) => void;
+  onSend: (text: string, meta: { voice: boolean }) => void;
   onStop: () => void;
   isStreaming: boolean;
   autoFocus?: boolean;
@@ -29,6 +29,7 @@ export function Composer({
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   const textBeforeVoice = useRef("");
+  const usedVoice = useRef(false);
   const canSend = value.trim().length > 0 && !isStreaming;
 
   const resize = useCallback(() => {
@@ -57,7 +58,10 @@ export function Composer({
   const voiceHandlers = useMemo(
     () => ({
       onLive: (text: string) => writeVoiceText(text),
-      onFinal: (text: string) => writeVoiceText(text, true),
+      onFinal: (text: string) => {
+        if (text.trim()) usedVoice.current = true;
+        writeVoiceText(text, true);
+      },
       onCancel: () => writeVoiceText("", true),
     }),
     [writeVoiceText],
@@ -104,7 +108,8 @@ export function Composer({
 
   const submit = () => {
     if (!canSend || voiceActive) return;
-    onSend(value);
+    onSend(value, { voice: usedVoice.current });
+    usedVoice.current = false;
     setValue("");
     requestAnimationFrame(() => {
       if (ref.current) ref.current.style.height = "auto";

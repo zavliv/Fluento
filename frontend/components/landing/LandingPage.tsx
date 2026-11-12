@@ -102,6 +102,9 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
   const guide = pickGuide(teachers, default_teacher_id);
   const { steps, features, points } = useMemo(() => landingCopy(teachers), [teachers]);
   const onlineCount = teachers.filter((t) => t.online).length;
+  const levelTestHref = user
+    ? "/?view=level"
+    : `/${signup_enabled ? "signup" : "login"}?next=${encodeURIComponent("/?view=level")}`;
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
   const scrollTo = (id: string) => {
@@ -117,6 +120,7 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
             {[
               ["teachers", "Teachers"],
               ["how-it-works", "How it works"],
+              ["level-test", "Level test"],
               ["why-us", `Why ${app_name}`],
             ].map(([id, label]) => (
               <button
@@ -263,6 +267,84 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
                 <p className="mt-2 text-sm leading-relaxed text-muted">{text}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="level-test" className="scroll-mt-16 border-t border-line">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-20 md:px-8 lg:grid-cols-2">
+          <div>
+            <p className="text-sm font-semibold text-accent">Free level test</p>
+            <h2 className="mt-2 text-[30px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[38px]">
+              Not sure of your level? Find out in minutes.
+            </h2>
+            <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted">
+              A quick adaptive quiz and a short conversation place you on the CEFR scale, from A1 to C2. Then you get
+              feedback on every answer, a study plan, and the teacher who fits you best.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-ink">
+              {[
+                "Questions adapt to you as you answer",
+                "Type or speak your answers",
+                "Teachers adjust their English to your level",
+              ].map((point) => (
+                <li key={point} className="flex items-center gap-2">
+                  <Check className="size-4 text-success" />
+                  {point}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href={levelTestHref}
+              className="mt-7 inline-flex h-12 items-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-ink transition-opacity hover:opacity-90"
+            >
+              Find my level
+              <ArrowRight className="size-4" />
+            </Link>
+          </div>
+          <div className="rounded-3xl border border-line bg-surface p-6 shadow-[0_1px_2px_rgb(0_0_0/0.04)] md:p-8">
+            <p className="text-xs font-semibold tracking-wider text-subtle uppercase">Example result</p>
+            <div className="mt-4 flex items-center gap-4">
+              <span className="flex size-16 items-center justify-center rounded-2xl bg-accent text-[26px] font-bold text-accent-ink">
+                B1
+              </span>
+              <div>
+                <p className="text-xl font-bold tracking-[-0.02em] text-ink">Intermediate</p>
+                <p className="text-sm text-muted">Quick check: 6 of 8 correct</p>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-1">
+              {["A1", "A2", "B1", "B2", "C1", "C2"].map((l, i) => (
+                <span key={l} className="flex-1">
+                  <span className={`block h-1.5 rounded-full ${i <= 2 ? "bg-accent" : "bg-hover"}`} />
+                  <span
+                    className={`mt-1.5 block text-center text-[11px] ${i === 2 ? "font-bold text-ink" : "text-subtle"}`}
+                  >
+                    {l}
+                  </span>
+                </span>
+              ))}
+            </div>
+            <ul className="mt-5 space-y-3">
+              {[
+                ["Grammar", "A2", 2],
+                ["Vocabulary", "B1", 3],
+                ["Fluency", "B1", 3],
+              ].map(([label, level, width]) => (
+                <li key={label as string}>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted">{label}</span>
+                    <span className="font-semibold text-ink">{level}</span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-hover">
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${((width as number) / 6) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>

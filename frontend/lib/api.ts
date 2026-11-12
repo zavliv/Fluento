@@ -37,34 +37,68 @@ export type LevelResult = {
   improvements: string[];
   recommended_teacher_id: string | null;
   recommendation_reason: string;
+  answer_feedback: { improved: string; tip: string }[];
+  plan: { title: string; detail: string; teacher_id: string | null; practice_prompt: string }[];
+  quiz_correct: number | null;
+  quiz_total: number | null;
+  quiz_level: CefrLevel | null;
+};
+
+export type QuizQuestion = { id: string; skill: "grammar" | "vocabulary"; question: string; options: string[] };
+
+export type QuizReviewItem = {
+  level: CefrLevel;
+  skill: "grammar" | "vocabulary";
+  question: string;
+  options: string[];
+  answer_index: number;
+  chosen: number;
+  correct: boolean;
 };
 
 export type LevelTest = {
   id: string;
   status: "in_progress" | "completed";
+  phase: "quiz" | "chat" | "done";
+  quiz: { total: number; answered: number; current: QuizQuestion | null } | null;
   question_count: number;
   answered: number;
-  messages: { role: "examiner" | "learner"; content: string }[];
+  messages: { role: "examiner" | "learner"; content: string; mode?: "typed" | "voice" | null }[];
   result: LevelResult | null;
+  quiz_review: QuizReviewItem[];
   created_at: string;
   completed_at: string | null;
 };
 
+export type LevelHistoryItem = { id: string; level: CefrLevel; scores: SkillScores; completed_at: string };
+
 export type LevelTestState = {
-  config: { enabled: boolean; question_count: number };
+  config: { enabled: boolean; quiz_enabled: boolean; quiz_count: number; question_count: number };
   current: LevelTest | null;
   latest: LevelTest | null;
+  previous: LevelHistoryItem | null;
+  history: LevelHistoryItem[];
 };
 
 export type LevelTestConfig = {
   enabled: boolean;
+  quiz_enabled: boolean;
+  quiz_count: number;
   question_count: number;
   examiner_prompt: string;
   grading_prompt: string;
 };
 
+export type QuizBank = {
+  counts: Record<CefrLevel, number>;
+  refilling: boolean;
+  questions: (QuizQuestion & { level: CefrLevel; answer_index: number })[];
+};
+
 export type AdminLevelTests = {
   distribution: Record<CefrLevel, number>;
+  average_quiz_score: number | null;
+  spoken_share: number | null;
   tests: {
     id: string;
     user_id: string;
@@ -73,6 +107,9 @@ export type AdminLevelTests = {
     level: CefrLevel;
     scores: SkillScores;
     recommended_teacher_id: string | null;
+    quiz_correct: number | null;
+    quiz_total: number | null;
+    spoken_answers: number;
     completed_at: string;
   }[];
 };
@@ -266,8 +303,10 @@ export const api = {
   mistakeSummary: () => request<MistakeSummary>("/me/mistakes/summary"),
   levelTest: () => request<LevelTestState>("/me/level-test"),
   startLevelTest: () => request<LevelTest>("/me/level-test", { method: "POST" }),
-  answerLevelTest: (id: string, text: string) =>
-    request<LevelTest>(`/me/level-test/${id}/answer`, { method: "POST", json: { text } }),
+  answerLevelTest: (id: string, text: string, mode: "typed" | "voice") =>
+    request<LevelTest>(`/me/level-test/${id}/answer`, { method: "POST", json: { text, mode } }),
+  answerLevelQuiz: (id: string, choice: number) =>
+    request<LevelTest>(`/me/level-test/${id}/quiz`, { method: "POST", json: { choice } }),
   gradeLevelTest: (id: string) => request<LevelTest>(`/me/level-test/${id}/grade`, { method: "POST" }),
   cancelLevelTest: (id: string) => request<{ ok: true }>(`/me/level-test/${id}`, { method: "DELETE" }),
   setMistakeMastered: (id: string, mastered: boolean) =>
@@ -293,6 +332,10 @@ export const api = {
       request<LevelTestConfig>("/admin/level-test/config", { method: "PUT", json: body }),
     resetLevelTestConfig: () => request<LevelTestConfig>("/admin/level-test/config/reset", { method: "POST" }),
     levelTests: () => request<AdminLevelTests>("/admin/level-tests"),
+    quizBank: () => request<QuizBank>("/admin/level-test/questions"),
+    deleteQuizQuestion: (id: string) =>
+      request<{ ok: true }>(`/admin/level-test/questions/${id}`, { method: "DELETE" }),
+    refreshQuizBank: () => request<{ ok: true }>("/admin/level-test/questions/refresh", { method: "POST" }),
     levelTestDetail: (id: string) => request<LevelTest>(`/admin/level-tests/${id}`),
     teachers: () => request<AdminTeacher[]>("/admin/teachers"),
     teacher: (id: string) => request<AdminTeacher>(`/admin/teachers/${id}`),

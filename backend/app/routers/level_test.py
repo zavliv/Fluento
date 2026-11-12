@@ -4,9 +4,17 @@ from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db import db, now
-from app.schemas.level_test import AnswerRequest, LevelTestOut, LevelTestPublicConfig, LevelTestState, level_test_out
+from app.schemas.level_test import (
+    AnswerRequest,
+    LevelTestOut,
+    LevelTestPublicConfig,
+    LevelTestState,
+    QuizAnswerRequest,
+    history_item,
+    level_test_out,
+)
 from app.security import current_user
-from app.services.level_test import GradingError, get_config, grade, next_question
+from app.services.level_test import GradingError, answer_quiz, build_quiz, get_config, grade, next_question
 from app.services.llm import error_message
 
 router = APIRouter(prefix="/me/level-test", tags=["level test"])
@@ -27,6 +35,14 @@ async def _own_test(test_id: str, user: dict) -> dict:
     return test
 
 
+async def _ask(test: dict, user: dict) -> None:
+    try:
+        question = await next_question(test, await get_config(), user["name"])
+    except groq.GroqError as exc:
+        raise _llm_error(exc) from exc
+    test["messages"].append({"role": "examiner", "content": question})
+
+
 async def _finish(test: dict, user: dict) -> dict:
     try:
         result = await grade(test, await get_config())
@@ -35,9 +51,10 @@ async def _finish(test: dict, user: dict) -> dict:
     except groq.GroqError as exc:
         raise _llm_error(exc) from exc
     finished = now()
-    test.update(status="completed", result=result.model_dump(), completed_at=finished)
+    test.update(status="completed", phase="done", result=result.model_dump(), completed_at=finished)
     await db.level_tests.update_one(
-        {"_id": test["_id"]}, {"$set": {"status": "completed", "result": test["result"], "completed_at": finished}}
+        {"_id": test["_id"]},
+        {"$set": {"status": "completed", "phase": "done", "result": test["result"], "completed_at": finished}},
     )
     await db.users.update_one(
         {"_id": user["_id"]},
@@ -52,11 +69,23 @@ async def state(user: dict = Depends(current_user)) -> LevelTestState:
     current = await db.level_tests.find_one(
         {"user_id": user["_id"], "status": "in_progress"}, sort=[("created_at", -1)]
     )
-    latest = await db.level_tests.find_one({"user_id": user["_id"], "status": "completed"}, sort=[("completed_at", -1)])
+    done = (
+        await db.level_tests.find({"user_id": user["_id"], "status": "completed"})
+        .sort("completed_at", -1)
+        .limit(20)
+        .to_list()
+    )
     return LevelTestState(
-        config=LevelTestPublicConfig(enabled=config.enabled, question_count=config.question_count),
+        config=LevelTestPublicConfig(
+            enabled=config.enabled,
+            quiz_enabled=config.quiz_enabled,
+            quiz_count=config.quiz_count,
+            question_count=config.question_count,
+        ),
         current=level_test_out(current) if current else None,
-        latest=level_test_out(latest) if latest else None,
+        latest=level_test_out(done[0]) if done else None,
+        previous=history_item(done[1]) if len(done) > 1 else None,
+        history=[history_item(d) for d in reversed(done)],
     )
 
 
@@ -69,34 +98,51 @@ async def start(user: dict = Depends(current_user)) -> LevelTestOut:
     test = {
         "user_id": user["_id"],
         "status": "in_progress",
+        "phase": "chat",
         "question_count": config.question_count,
         "messages": [],
         "created_at": now(),
     }
-    try:
-        test["messages"].append({"role": "examiner", "content": await next_question(test, config, user["name"])})
-    except groq.GroqError as exc:
-        raise _llm_error(exc) from exc
+    if config.quiz_enabled:
+        try:
+            quiz = await build_quiz(user["_id"], config.quiz_count)
+        except groq.GroqError as exc:
+            raise _llm_error(exc) from exc
+        if quiz:
+            test.update(phase="quiz", quiz=quiz)
+    if test["phase"] == "chat":
+        await _ask(test, user)
     test["_id"] = (await db.level_tests.insert_one(test)).inserted_id
+    return level_test_out(test)
+
+
+@router.post("/{test_id}/quiz")
+async def quiz(test_id: str, body: QuizAnswerRequest, user: dict = Depends(current_user)) -> LevelTestOut:
+    test = await _own_test(test_id, user)
+    if test["status"] != "in_progress" or test.get("phase") != "quiz" or not test["quiz"].get("current"):
+        raise HTTPException(status_code=400, detail="The quick check is already finished.")
+    answer_quiz(test["quiz"], body.choice)
+    if test["quiz"]["current"] is None:
+        test["phase"] = "chat"
+        await _ask(test, user)
+    await db.level_tests.update_one(
+        {"_id": test["_id"]}, {"$set": {"quiz": test["quiz"], "phase": test["phase"], "messages": test["messages"]}}
+    )
     return level_test_out(test)
 
 
 @router.post("/{test_id}/answer")
 async def answer(test_id: str, body: AnswerRequest, user: dict = Depends(current_user)) -> LevelTestOut:
     test = await _own_test(test_id, user)
-    if test["status"] != "in_progress":
-        raise HTTPException(status_code=400, detail="This test is already finished.")
+    if test["status"] != "in_progress" or test.get("phase", "chat") != "chat":
+        raise HTTPException(status_code=400, detail="This part of the test isn't open.")
     answered = sum(1 for m in test["messages"] if m["role"] == "learner")
     if answered >= test["question_count"]:
         return level_test_out(await _finish(test, user))
 
-    test["messages"].append({"role": "learner", "content": body.text.strip()})
+    test["messages"].append({"role": "learner", "content": body.text.strip(), "mode": body.mode})
     if answered + 1 < test["question_count"]:
-        try:
-            question = await next_question(test, await get_config(), user["name"])
-        except groq.GroqError as exc:
-            raise _llm_error(exc) from exc
-        test["messages"].append({"role": "examiner", "content": question})
+        await _ask(test, user)
     await db.level_tests.update_one({"_id": test["_id"]}, {"$set": {"messages": test["messages"]}})
 
     if answered + 1 >= test["question_count"]:

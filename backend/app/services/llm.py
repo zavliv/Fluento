@@ -52,6 +52,7 @@ async def complete(
     temperature: float = 0.3,
     max_tokens: int = 1024,
     json_mode: bool = False,
+    reasoning_effort: str | None = None,
 ) -> str:
     app_settings = await get_app_settings()
     response = await client.chat.completions.create(
@@ -60,5 +61,6 @@ async def complete(
         temperature=temperature,
         max_completion_tokens=max_tokens,
         **({"response_format": {"type": "json_object"}} if json_mode else {}),
+        **({"reasoning_effort": reasoning_effort} if reasoning_effort else {}),
     )
     return response.choices[0].message.content or ""

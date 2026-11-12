@@ -8,6 +8,7 @@ from app.config import settings
 from app.db import client
 from app.routers import admin, admin_auth, admin_team, auth, chat, level_test, me, mistakes, public
 from app.seed.setup import setup_database
+from app.services.level_test import refill_pool
 from app.services.pending import answer_all_pending
 from app.services.tasks import run_in_background
 
@@ -18,6 +19,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(_: FastAPI):
     await setup_database()
     run_in_background(answer_all_pending())
+    run_in_background(refill_pool())
     yield
     await client.close()
 

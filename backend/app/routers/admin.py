@@ -25,6 +25,8 @@ from app.schemas.level_test import (
     AdminLevelTests,
     LevelTestConfig,
     LevelTestOut,
+    QuizBank,
+    QuizBankQuestion,
     level_test_out,
 )
 from app.schemas.rules import RuleSection, RuleSectionCreate, RuleSectionFields, rule_section
@@ -35,6 +37,9 @@ from app.services.pending import answer_pending
 from app.services.tasks import run_in_background
 from app.services.level_test import DEFAULT_CONFIG as DEFAULT_LEVEL_TEST_CONFIG
 from app.services.level_test import get_config as get_level_test_config
+from app.services.level_test import pool_counts as quiz_pool_counts
+from app.services.level_test import refill_pool as refill_quiz_pool
+from app.services.level_test import refilling as quiz_refilling
 from app.services.level_test import save_config as save_level_test_config
 from app.services.app_settings import SETTINGS_ID, clear_settings_cache, get_app_settings
 from app.services.memory import get_memory
@@ -364,18 +369,59 @@ async def reset_level_test_config() -> LevelTestConfig:
     return await save_level_test_config(DEFAULT_LEVEL_TEST_CONFIG)
 
 
+@router.get("/level-test/questions")
+async def list_quiz_questions() -> QuizBank:
+    docs = await db.quiz_questions.find({}).sort([("level", 1), ("created_at", -1)]).to_list()
+    return QuizBank(
+        counts=await quiz_pool_counts(),
+        refilling=quiz_refilling(),
+        questions=[
+            QuizBankQuestion(
+                id=str(d["_id"]),
+                level=d["level"],
+                skill=d["skill"],
+                question=d["question"],
+                options=d["options"],
+                answer_index=d["answer_index"],
+            )
+            for d in docs
+        ],
+    )
+
+
+@router.delete("/level-test/questions/{question_id}")
+async def delete_quiz_question(question_id: str) -> dict:
+    if (await db.quiz_questions.delete_one({"_id": _object_id(question_id)})).deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Question not found.")
+    run_in_background(refill_quiz_pool())
+    return {"ok": True}
+
+
+@router.post("/level-test/questions/refresh")
+async def refresh_quiz_questions() -> dict:
+    await db.quiz_questions.delete_many({})
+    run_in_background(refill_quiz_pool())
+    return {"ok": True}
+
+
 @router.get("/level-tests")
 async def list_level_tests() -> AdminLevelTests:
     docs = await db.level_tests.find({"status": "completed"}).sort("completed_at", -1).limit(200).to_list()
     users = {u["_id"]: u for u in await db.users.find({"_id": {"$in": [d["user_id"] for d in docs]}}).to_list()}
     distribution = {level: 0 for level in LEVELS}
-    latest_per_user: set = set()
+    seen: set = set()
     for d in docs:
-        if d["user_id"] not in latest_per_user:
-            latest_per_user.add(d["user_id"])
+        if d["user_id"] not in seen:
+            seen.add(d["user_id"])
             distribution[d["result"]["level"]] += 1
+    quiz_scores = [
+        d["result"]["quiz_correct"] / d["result"]["quiz_total"] for d in docs if d["result"].get("quiz_total")
+    ]
+    answers = [m for d in docs for m in d.get("messages", []) if m["role"] == "learner"]
     return AdminLevelTests(
         distribution=distribution,
+        average_quiz_score=round(sum(quiz_scores) / len(quiz_scores), 3) if quiz_scores else None,
+        spoken_share=round(sum(m.get("mode") == "voice" for m in answers) / len(answers), 3) if answers else None,
         tests=[
             AdminLevelTest(
                 id=str(d["_id"]),
@@ -385,6 +431,9 @@ async def list_level_tests() -> AdminLevelTests:
                 level=d["result"]["level"],
                 scores=d["result"]["scores"],
                 recommended_teacher_id=d["result"].get("recommended_teacher_id"),
+                quiz_correct=d["result"].get("quiz_correct"),
+                quiz_total=d["result"].get("quiz_total"),
+                spoken_answers=sum(1 for m in d.get("messages", []) if m.get("mode") == "voice"),
                 completed_at=d["completed_at"],
             )
             for d in docs

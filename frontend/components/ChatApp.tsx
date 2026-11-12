@@ -84,6 +84,24 @@ export default function ChatApp() {
     if (isMobile()) setSidebarOpen(false);
   }, [select]);
 
+  const pendingView = params.get("view");
+  const handledView = useRef(false);
+  useEffect(() => {
+    if (pendingView !== "level" || handledView.current || !user || !chat.ready) return;
+    handledView.current = true;
+    openLevelTest();
+    router.replace("/");
+  }, [pendingView, user, chat.ready, openLevelTest, router]);
+
+  const practiseWith = useCallback(
+    (teacherId: string, text: string) => {
+      if (!teachers.some((t) => t.id === teacherId)) return;
+      practice.current = { teacherId, text };
+      openTeacher(teacherId);
+    },
+    [teachers, openTeacher],
+  );
+
   const practise = useCallback(
     (m: { rule: string; original: string; correction: string; teacher_id?: string }) => {
       const teacher = teachers.find((t) => t.id === m.teacher_id) ?? pickGuide(teachers, defaultTeacherId);
@@ -263,7 +281,12 @@ export default function ChatApp() {
         />
 
         {view === "level" && !active ? (
-          <LevelTestPage teachers={teachers} onOpenTeacher={openTeacher} onCompleted={() => void refreshUser()} />
+          <LevelTestPage
+            teachers={teachers}
+            onOpenTeacher={openTeacher}
+            onPractise={practiseWith}
+            onCompleted={() => void refreshUser()}
+          />
         ) : view === "mistakes" && !active ? (
           <MistakesPage
             teachers={teachers}
