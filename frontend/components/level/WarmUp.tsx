@@ -18,19 +18,21 @@ type Answer = {
   questionId: string;
   choice: number;
   feedback: QuizFeedback;
-  next: LevelTest | null;
+  next: HasQuiz | null;
   error: string | null;
 };
 
-export function WarmUp({
+type HasQuiz = { quiz: LevelTest["quiz"] };
+
+export function WarmUp<T extends HasQuiz>({
   test,
   onAnswer,
   onAdvance,
   onClose,
 }: {
-  test: LevelTest;
-  onAnswer: (choice: number) => Promise<LevelTest>;
-  onAdvance: (next: LevelTest) => void;
+  test: T;
+  onAnswer: (choice: number) => Promise<T>;
+  onAdvance: (next: T) => void;
   onClose: () => void;
 }) {
   const quiz = test.quiz!;
@@ -87,7 +89,7 @@ export function WarmUp({
   );
 
   const proceed = useCallback(() => {
-    if (answer?.next) onAdvance(answer.next);
+    if (answer?.next) onAdvance(answer.next as T);
   }, [answer, onAdvance]);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ClipboardCheck,
+  Flame,
   GraduationCap,
   Keyboard,
   LayoutGrid,
@@ -14,6 +14,7 @@ import {
   SpellCheck,
   Sun,
   X,
+  Zap,
 } from "lucide-react";
 import type { Theme } from "@/hooks/useTheme";
 import type { User } from "@/lib/api";
@@ -41,8 +42,10 @@ type Props = {
   mistakesOpen: boolean;
   mistakeCount: number | null;
   onOpenMistakes: () => void;
-  levelOpen: boolean;
-  onOpenLevelTest: () => void;
+  practiceOpen: boolean;
+  onOpenPractice: () => void;
+  streak: number | null;
+  practiceDone: boolean;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   online: boolean | null;
@@ -125,23 +128,28 @@ export function Sidebar(props: Props) {
           </button>
           <button
             type="button"
-            onClick={props.onOpenLevelTest}
-            aria-current={props.levelOpen ? "page" : undefined}
+            onClick={props.onOpenPractice}
+            aria-current={props.practiceOpen ? "page" : undefined}
             className={cn(
               "flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-sm transition-colors",
-              props.levelOpen ? "bg-hover font-semibold text-ink" : "text-muted hover:bg-hover/70 hover:text-ink",
+              props.practiceOpen ? "bg-hover font-semibold text-ink" : "text-muted hover:bg-hover/70 hover:text-ink",
             )}
           >
-            <ClipboardCheck className="size-4" />
-            Level test
-            <span
-              className={cn(
-                "ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                props.user.level ? "bg-ink text-bg" : "bg-hover text-muted",
-              )}
-            >
-              {props.user.level ?? "Take it"}
-            </span>
+            <Zap className="size-4" />
+            Practice
+            {props.streak !== null && (
+              <span
+                className={cn(
+                  "ml-auto inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
+                  props.streak > 0 ? "text-white" : "bg-hover text-muted",
+                )}
+                style={props.streak > 0 ? { background: props.practiceDone ? "#f97316" : "#fb923c" } : undefined}
+                title={props.practiceDone ? "Streak safe for today" : "Do today's challenge to keep your streak"}
+              >
+                <Flame className="size-3" />
+                {props.streak}
+              </span>
+            )}
           </button>
         </div>
 
@@ -278,7 +286,7 @@ function Rail({
   onOpenShortcuts,
   onOpenMistakes,
   mistakeCount,
-  onOpenLevelTest,
+  onOpenPractice,
 }: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
@@ -320,8 +328,8 @@ function Rail({
             </span>
           )}
         </span>
-        <IconButton label="Level test" tooltip="right" onClick={onOpenLevelTest} className={railButton}>
-          <ClipboardCheck />
+        <IconButton label="Practice" tooltip="right" onClick={onOpenPractice} className={railButton}>
+          <Zap />
         </IconButton>
       </div>
 

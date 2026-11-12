@@ -17,6 +17,7 @@ from app.schemas.level_test import (
 from app.security import current_user
 from app.services.level_test import GradingError, answer_quiz, build_quiz, get_config, grade, next_question
 from app.services.llm import error_message
+from app.services.progress import record_level_check
 
 router = APIRouter(prefix="/me/level-test", tags=["level test"])
 
@@ -61,6 +62,7 @@ async def _finish(test: dict, user: dict) -> dict:
         {"_id": user["_id"]},
         {"$set": {"level": {"level": result.level, "test_id": test["_id"], "tested_at": finished}}},
     )
+    await record_level_check(user["_id"], result.level, (user.get("level") or {}).get("level"))
     return test
 
 

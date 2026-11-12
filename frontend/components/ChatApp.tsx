@@ -1,11 +1,23 @@
 "use client";
 
-import { ClipboardCheck, Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, SpellCheck, Sun } from "lucide-react";
+import {
+  ClipboardCheck,
+  Flame,
+  Keyboard,
+  LayoutGrid,
+  Monitor,
+  Moon,
+  PanelLeft,
+  SpellCheck,
+  Sun,
+  Zap,
+} from "lucide-react";
 import { LoaderCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBackendStatus } from "@/hooks/useBackendStatus";
 import { useMistakeSummary } from "@/hooks/useMistakeSummary";
+import { useProgress } from "@/hooks/useProgress";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useTeacherChats } from "@/hooks/useTeacherChats";
 import { useTheme } from "@/hooks/useTheme";
@@ -17,6 +29,9 @@ import { CommandPalette, type Command } from "./CommandPalette";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { LevelTestPage } from "./level/LevelTestPage";
+import { ChallengeFlow } from "./practice/ChallengeFlow";
+import { ProgressPage } from "./practice/ProgressPage";
+import { TodayCard } from "./practice/TodayCard";
 import { MistakesPage } from "./mistakes/MistakesPage";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
@@ -44,7 +59,9 @@ export default function ChatApp() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { active, messages, select, stop, isStreaming, clear, restore } = chat;
   const { myTeacherIds, addTeacher, removeTeacher } = chat;
-  const [view, setView] = useState<"chat" | "mistakes" | "level">("chat");
+  const [view, setView] = useState<"chat" | "mistakes" | "progress" | "level" | "challenge">("chat");
+  const returnTo = useRef<"chat" | "progress">("chat");
+  const { progress, refresh: refreshProgress } = useProgress(Boolean(user));
   const practice = useRef<{ teacherId: string; text: string } | null>(null);
   const mistakes = useMistakeSummary(Boolean(user), isStreaming);
 
@@ -78,8 +95,26 @@ export default function ChatApp() {
     if (isMobile()) setSidebarOpen(false);
   }, [select, mistakes]);
 
-  const openLevelTest = useCallback(() => {
-    setView("level");
+  const openFocus = useCallback(
+    (next: "level" | "challenge") => {
+      setView((current) => {
+        if (current === "progress" || current === "chat") returnTo.current = current;
+        return next;
+      });
+      select(null);
+      if (isMobile()) setSidebarOpen(false);
+    },
+    [select],
+  );
+  const openLevelTest = useCallback(() => openFocus("level"), [openFocus]);
+  const openChallenge = useCallback(() => openFocus("challenge"), [openFocus]);
+  const closeFocus = useCallback(() => {
+    setView(returnTo.current);
+    refreshProgress();
+  }, [refreshProgress]);
+
+  const openPractice = useCallback(() => {
+    setView("progress");
     select(null);
     if (isMobile()) setSidebarOpen(false);
   }, [select]);
@@ -87,11 +122,12 @@ export default function ChatApp() {
   const pendingView = params.get("view");
   const handledView = useRef(false);
   useEffect(() => {
-    if (pendingView !== "level" || handledView.current || !user || !chat.ready) return;
+    if (!pendingView || handledView.current || !user || !chat.ready) return;
     handledView.current = true;
-    openLevelTest();
+    const open = { level: openLevelTest, challenge: openChallenge, practice: openPractice }[pendingView];
+    if (open) queueMicrotask(open);
     router.replace("/");
-  }, [pendingView, user, chat.ready, openLevelTest, router]);
+  }, [pendingView, user, chat.ready, openLevelTest, openChallenge, openPractice, router]);
 
   const practiseWith = useCallback(
     (teacherId: string, text: string) => {
@@ -203,7 +239,9 @@ export default function ChatApp() {
         run: () => setShortcutsOpen(true),
       },
       { id: "mistakes", label: "My mistakes", group: "Actions", icon: <SpellCheck />, run: openMistakes },
-      { id: "level", label: "Level test", group: "Actions", icon: <ClipboardCheck />, run: openLevelTest },
+      { id: "challenge", label: "Today's challenge", group: "Actions", icon: <Zap />, run: openChallenge },
+      { id: "practice", label: "Practice and progress", group: "Actions", icon: <Flame />, run: openPractice },
+      { id: "level", label: "Level check", group: "Actions", icon: <ClipboardCheck />, run: openLevelTest },
     ];
     const teacherCommands: Command[] = teachers.map((t) => ({
       id: `teacher-${t.id}`,
@@ -213,7 +251,7 @@ export default function ChatApp() {
       run: () => openTeacher(t.id),
     }));
     return [...teacherCommands, ...actions];
-  }, [teachers, openTeacher, openMistakes, openLevelTest, setTheme]);
+  }, [teachers, openTeacher, openMistakes, openLevelTest, openChallenge, openPractice, setTheme]);
 
   if (authLoading || teachersLoading || (user && !chat.ready)) {
     return (
@@ -240,6 +278,14 @@ export default function ChatApp() {
     );
   }
 
+  if (view === "challenge") {
+    return (
+      <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
+        <ChallengeFlow onClose={closeFocus} onFinished={refreshProgress} onLevelCheck={openLevelTest} />
+      </div>
+    );
+  }
+
   if (view === "level") {
     return (
       <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
@@ -247,8 +293,11 @@ export default function ChatApp() {
           teachers={teachers}
           onOpenTeacher={openTeacher}
           onPractise={practiseWith}
-          onCompleted={() => void refreshUser()}
-          onClose={() => setView("chat")}
+          onCompleted={() => {
+            void refreshUser();
+            refreshProgress();
+          }}
+          onClose={closeFocus}
         />
       </div>
     );
@@ -271,8 +320,10 @@ export default function ChatApp() {
         mistakesOpen={view === "mistakes"}
         mistakeCount={mistakes.summary?.open ?? null}
         onOpenMistakes={openMistakes}
-        levelOpen={false}
-        onOpenLevelTest={openLevelTest}
+        practiceOpen={view === "progress"}
+        onOpenPractice={openPractice}
+        streak={progress?.placed ? progress.streak.current : null}
+        practiceDone={Boolean(progress?.streak.done_today)}
         theme={theme}
         onThemeChange={setTheme}
         online={online}
@@ -287,14 +338,21 @@ export default function ChatApp() {
           typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
-          title={view === "mistakes" ? "My mistakes" : undefined}
+          title={view === "mistakes" ? "My mistakes" : view === "progress" ? "Practice" : undefined}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onShowTeachers={() => openTeacher(null)}
           onExport={exportCurrent}
           onClear={clearConversation}
         />
 
-        {view === "mistakes" && !active ? (
+        {view === "progress" && !active ? (
+          <ProgressPage
+            progress={progress}
+            onStart={openChallenge}
+            onLevelCheck={openLevelTest}
+            onRefresh={refreshProgress}
+          />
+        ) : view === "mistakes" && !active ? (
           <MistakesPage
             teachers={teachers}
             summary={mistakes.summary}
@@ -339,8 +397,16 @@ export default function ChatApp() {
             myTeacherIds={myTeacherIds}
             onSelect={openTeacher}
             userName={user.name}
-            level={user.level ?? null}
-            onOpenLevelTest={openLevelTest}
+            today={
+              progress && (
+                <TodayCard
+                  progress={progress}
+                  onStart={openChallenge}
+                  onLevelCheck={openLevelTest}
+                  onOpenProgress={openPractice}
+                />
+              )
+            }
           />
         )}
       </main>

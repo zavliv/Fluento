@@ -180,7 +180,18 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
     if (test.answered >= test.question_count) {
       return <Grading busy={busy} error={error} onRetry={() => void retryGrading()} onClose={leave} />;
     }
-    return <ChatRound test={test} busy={busy} error={error} onAnswer={answerChat} onClose={leave} />;
+    return (
+      <ChatRound
+        question={[...test.messages].reverse().find((m) => m.role === "examiner")?.content ?? ""}
+        topic={test.topic}
+        done={test.answered}
+        total={test.question_count}
+        busy={busy}
+        error={error}
+        onAnswer={answerChat}
+        onClose={leave}
+      />
+    );
   }
 
   if (phase === "reveal" && test?.result) {
@@ -487,7 +498,7 @@ function Grading({
 
 const CONFETTI_COLORS = ["#0d9488", "#f59e0b", "#e11d48", "#6366f1", "#22c55e", "#0ea5e9"];
 
-function Confetti() {
+export function Confetti() {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const root = box.current;

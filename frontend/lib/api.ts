@@ -122,6 +122,111 @@ export type QuizBank = {
   questions: (QuizQuestion & { level: CefrLevel; answer_index: number })[];
 };
 
+export type Badge = { id: string; name: string; description: string; earned_at: string | null };
+
+export type Progress = {
+  enabled: boolean;
+  placed: boolean;
+  rating: number;
+  level: CefrLevel;
+  band_progress: number;
+  confidence: number;
+  official_level: CefrLevel | null;
+  official_at: string | null;
+  streak: {
+    current: number;
+    best: number;
+    freezes: number;
+    max_freezes: number;
+    freeze_progress: number;
+    freeze_every: number;
+    done_today: boolean;
+    used_freeze_today: boolean;
+  };
+  today: { xp: number; goal: number; challenges: number };
+  xp_week: number;
+  xp_total: number;
+  badges: Badge[];
+  catalog: Badge[];
+  calendar: { day: string; xp: number }[];
+  check: {
+    available: boolean;
+    reason: "first" | "level_up" | "weekly" | "wait";
+    next_at: string | null;
+    last_at: string | null;
+  };
+  league_enabled: boolean;
+  league_opt_in: boolean;
+};
+
+export type ChallengeResult = {
+  xp: number;
+  breakdown: { label: string; xp: number }[];
+  correct: number;
+  total: number;
+  rating_before: number;
+  rating_after: number;
+  level_before: CefrLevel;
+  level_after: CefrLevel;
+  band_progress: number;
+  streak: number;
+  streak_extended: boolean;
+  today_xp: number;
+  goal: number;
+  goal_reached: boolean;
+  new_badges: Badge[];
+};
+
+export type Challenge = {
+  id: string;
+  kind: "placement" | "daily";
+  status: "quiz" | "speaking" | "completed";
+  quiz: LevelTest["quiz"];
+  speaking: {
+    prompt: string;
+    answer: string | null;
+    mode: "typed" | "voice" | null;
+    score: number | null;
+    feedback: string;
+    improved: string;
+  } | null;
+  result: ChallengeResult | null;
+};
+
+export type League = {
+  enabled: boolean;
+  opt_in: boolean;
+  week: string;
+  ends_at: string;
+  entries: { rank: number; name: string; xp: number; me: boolean }[];
+  me: { rank: number; name: string; xp: number; me: boolean } | null;
+  total: number;
+};
+
+export type ProgressConfig = {
+  enabled: boolean;
+  daily_goal_xp: number;
+  placement_rounds: number;
+  daily_rounds: number;
+  xp_correct: number;
+  xp_hard_bonus: number;
+  xp_spoken: number;
+  xp_level_check: number;
+  freeze_every_days: number;
+  max_freezes: number;
+  check_every_days: number;
+  league_enabled: boolean;
+  speaking_model: string;
+};
+
+export const timeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "UTC";
+  }
+};
+
 export type AdminLevelTests = {
   distribution: Record<CefrLevel, number>;
   average_quiz_score: number | null;
@@ -330,6 +435,14 @@ export const api = {
     return request<Mistake[]>(`/me/mistakes?${params}`);
   },
   mistakeSummary: () => request<MistakeSummary>("/me/mistakes/summary"),
+  progress: () => request<Progress>(`/me/progress?tz=${encodeURIComponent(timeZone())}`),
+  startChallenge: () => request<Challenge>("/me/challenges", { method: "POST", json: { tz: timeZone() } }),
+  answerChallenge: (id: string, choice: number) =>
+    request<Challenge>(`/me/challenges/${id}/answer`, { method: "POST", json: { choice } }),
+  speakChallenge: (id: string, body: { text?: string; mode?: "typed" | "voice"; skip?: boolean }) =>
+    request<Challenge>(`/me/challenges/${id}/speak`, { method: "POST", json: body }),
+  league: () => request<League>("/me/league"),
+  setLeague: (optIn: boolean) => request<League>("/me/league", { method: "PUT", json: { opt_in: optIn } }),
   levelTest: () => request<LevelTestState>("/me/level-test"),
   startLevelTest: (topic?: string) => request<LevelTest>("/me/level-test", { method: "POST", json: { topic } }),
   answerLevelTest: (id: string, text: string, mode: "typed" | "voice") =>
@@ -356,6 +469,9 @@ export const api = {
       request<AdminAccount>(`/admin/team/${id}`, { method: "PATCH", json: { role } }),
     removeMember: (id: string) => request<{ ok: true }>(`/admin/team/${id}`, { method: "DELETE" }),
     stats: () => request<Stats>("/admin/stats"),
+    progressConfig: () => request<ProgressConfig>("/admin/progress/config"),
+    saveProgressConfig: (body: ProgressConfig) =>
+      request<ProgressConfig>("/admin/progress/config", { method: "PUT", json: body }),
     levelTestConfig: () => request<LevelTestConfig>("/admin/level-test/config"),
     saveLevelTestConfig: (body: LevelTestConfig) =>
       request<LevelTestConfig>("/admin/level-test/config", { method: "PUT", json: body }),

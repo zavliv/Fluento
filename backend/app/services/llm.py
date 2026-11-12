@@ -64,10 +64,11 @@ async def complete(
     max_tokens: int = 1024,
     json_mode: bool = False,
     reasoning_effort: str | None = None,
+    model: str | None = None,
 ) -> str:
     app_settings = await get_app_settings()
     response = await chat_create(
-        model=app_settings["llm_model"],
+        model=model or app_settings["llm_model"],
         messages=[{"role": "system", "content": system_prompt}, *messages],
         temperature=temperature,
         max_completion_tokens=max_tokens,

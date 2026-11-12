@@ -1,9 +1,8 @@
 "use client";
 
 import { Check, Keyboard, LoaderCircle, Mic, RotateCcw, Send, Volume2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
-import type { LevelTest } from "@/lib/api";
 import { formatDuration } from "@/components/VoiceRecorderBar";
 import { cn } from "@/lib/utils";
 import { FocusBar, PrimaryButton, SecondaryButton, useSpeaker } from "./shared";
@@ -11,20 +10,29 @@ import { FocusBar, PrimaryButton, SecondaryButton, useSpeaker } from "./shared";
 type Mode = "voice" | "type";
 
 export function ChatRound({
-  test,
+  question,
+  topic,
+  done,
+  total,
+  label,
   busy,
   error,
   onAnswer,
   onClose,
+  footer,
 }: {
-  test: LevelTest;
+  question: string;
+  topic?: string;
+  done: number;
+  total: number;
+  label?: string;
   busy: boolean;
   error: string | null;
   onAnswer: (text: string, voice: boolean) => Promise<boolean>;
   onClose: () => void;
+  footer?: ReactNode;
 }) {
-  const question = [...test.messages].reverse().find((m) => m.role === "examiner")?.content ?? "";
-  const number = Math.min(test.answered + 1, test.question_count);
+  const number = Math.min(done + 1, total);
   const { speak, playing, supported: canSpeak } = useSpeaker();
   const [mode, setMode] = useState<Mode>("voice");
   const [draft, setDraft] = useState("");
@@ -77,19 +85,17 @@ export function ChatRound({
     <div className="flex min-h-0 flex-1 flex-col">
       <FocusBar
         onClose={onClose}
-        progress={(test.answered / test.question_count) * 100}
+        progress={(done / total) * 100}
         right={
-          <span className="text-sm font-semibold text-muted tabular-nums">
-            {number} of {test.question_count}
-          </span>
+          <span className="text-sm font-semibold text-muted tabular-nums">{label ?? `${number} of ${total}`}</span>
         }
       />
 
       <div className="flex min-h-0 flex-1 overflow-y-auto">
         <div className="m-auto w-full max-w-xl px-5 py-8 text-center">
-          {test.topic && (
+          {topic && (
             <span className="inline-flex rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
-              {test.topic}
+              {topic}
             </span>
           )}
 
@@ -262,6 +268,7 @@ export function ChatRound({
               </div>
             )}
           </div>
+          {footer && <div className="mt-8">{footer}</div>}
         </div>
       </div>
     </div>

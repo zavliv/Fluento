@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import client
-from app.routers import admin, admin_auth, admin_team, auth, chat, level_test, me, mistakes, public
+from app.routers import admin, admin_auth, admin_team, auth, chat, level_test, me, mistakes, progress, public
 from app.seed.setup import setup_database
 from app.services.pending import answer_all_pending
 from app.services.tasks import run_in_background
@@ -37,6 +37,7 @@ for router in (
     auth.router,
     mistakes.router,
     level_test.router,
+    progress.router,
     me.router,
     chat.router,
     admin_auth.router,

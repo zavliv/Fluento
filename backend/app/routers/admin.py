@@ -36,6 +36,9 @@ from app.schemas.teachers import TeacherAdmin, TeacherCreate, TeacherFields, tea
 from app.security import current_admin
 from app.services.pending import answer_pending
 from app.seed.setup import seed_quiz
+from app.services.progress import ProgressConfig
+from app.services.progress import get_config as get_progress_config
+from app.services.progress import save_config as save_progress_config
 from app.services.tasks import run_in_background
 from app.services.level_test import DEFAULT_CONFIG as DEFAULT_LEVEL_TEST_CONFIG
 from app.services.level_test import get_config as get_level_test_config
@@ -284,6 +287,8 @@ async def delete_user(user_id: str) -> dict:
     await db.mistakes.delete_many({"user_id": oid})
     await db.memories.delete_one({"_id": oid})
     await db.level_tests.delete_many({"user_id": oid})
+    await db.challenges.delete_many({"user_id": oid})
+    await db.progress.delete_one({"_id": oid})
     return {"ok": True}
 
 
@@ -464,3 +469,16 @@ async def get_level_test(test_id: str) -> LevelTestOut:
     if doc is None:
         raise HTTPException(status_code=404, detail="Test not found.")
     return level_test_out(doc)
+
+
+# Daily challenges
+
+
+@router.get("/progress/config")
+async def read_progress_config() -> ProgressConfig:
+    return await get_progress_config()
+
+
+@router.put("/progress/config")
+async def write_progress_config(body: ProgressConfig) -> ProgressConfig:
+    return await save_progress_config(body)
