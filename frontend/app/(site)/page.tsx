@@ -1,32 +1,30 @@
+import { Suspense } from "react";
 import { ClientRoot } from "@/components/ClientRoot";
-import { SITE } from "@/lib/site";
-import { API_URL } from "@/lib/api";
-import type { Teacher } from "@/lib/teachers";
+import { getPublicData } from "@/lib/server";
+import { SITE, siteDescription, siteTitle } from "@/lib/site";
 
-async function loadTeachers(): Promise<Teacher[]> {
-  try {
-    const res = await fetch(`${API_URL}/teachers`, { next: { revalidate: 300 } });
-    return res.ok ? ((await res.json()) as Teacher[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-const structuredData = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: SITE.name,
-  url: SITE.url,
-  description: SITE.description,
-  applicationCategory: "EducationalApplication",
-  operatingSystem: "Web",
-  inLanguage: "en",
-  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-  audience: { "@type": "EducationalAudience", educationalRole: "student" },
-};
+export const instant = false;
 
 export default async function Home() {
-  const teachers = await loadTeachers();
+  const { settings, teachers } = await getPublicData();
+  const title = siteTitle(settings.app_name);
+  const description = siteDescription(
+    teachers.length,
+    teachers.map((t) => t.specialty),
+  );
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: settings.app_name,
+    url: SITE.url,
+    description,
+    applicationCategory: "EducationalApplication",
+    operatingSystem: "Web",
+    inLanguage: "en",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    audience: { "@type": "EducationalAudience", educationalRole: "student" },
+  };
+
   return (
     <>
       <script
@@ -34,8 +32,8 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
       />
       <header className="sr-only">
-        <h1>{SITE.title}</h1>
-        <p>{SITE.description}</p>
+        <h1>{title}</h1>
+        <p>{description}</p>
         <h2>Choose your English teacher</h2>
         <ul>
           {teachers.map((t) => (
@@ -45,7 +43,9 @@ export default async function Home() {
           ))}
         </ul>
       </header>
-      <ClientRoot />
+      <Suspense fallback={<div className="h-dvh bg-bg" />}>
+        <ClientRoot />
+      </Suspense>
     </>
   );
 }

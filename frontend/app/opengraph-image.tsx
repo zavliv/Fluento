@@ -1,15 +1,13 @@
 import { ImageResponse } from "next/og";
-import { API_URL } from "@/lib/api";
-import type { Teacher } from "@/lib/teachers";
+import { getPublicData } from "@/lib/server";
+import { TAGLINE } from "@/lib/site";
 
-export const alt = "Fluento – Learn English by talking with AI teachers";
+export const alt = TAGLINE;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpengraphImage() {
-  const teachers: Teacher[] = await fetch(`${API_URL}/teachers`)
-    .then((res) => (res.ok ? res.json() : []))
-    .catch(() => []);
+  const { settings, teachers } = await getPublicData();
   return new ImageResponse(
     <div
       style={{
@@ -25,14 +23,14 @@ export default async function OpengraphImage() {
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-end", fontSize: 64, fontWeight: 700, letterSpacing: -2 }}>
-        Fluento
+        {settings.app_name}
         <div
           style={{ width: 14, height: 14, borderRadius: 999, background: "#2dd4bf", marginLeft: 6, marginBottom: 14 }}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.1, letterSpacing: -2, maxWidth: 900 }}>
-          Learn English by talking with AI teachers
+          {TAGLINE}
         </div>
         <div style={{ marginTop: 24, fontSize: 30, color: "#a6a298" }}>
           Speak or type. Get friendly corrections as you go.

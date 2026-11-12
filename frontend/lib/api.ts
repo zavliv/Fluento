@@ -1,3 +1,4 @@
+import type { PublicSettings } from "./site";
 import type { AdminTeacher, Teacher } from "./teachers";
 import type { Message, StreamEvent } from "./types";
 import { messageText } from "./utils";
@@ -108,8 +109,7 @@ export const api = {
   logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
 
   teachers: () => request<Teacher[]>("/teachers"),
-  publicSettings: () =>
-    request<Pick<AppSettings, "app_name" | "default_teacher_id" | "signup_enabled">>("/app-settings"),
+  publicSettings: () => request<PublicSettings>("/app-settings"),
   health: () => request<{ status: string; model: string }>("/health"),
 
   myTeachers: () => request<string[]>("/me/teachers"),

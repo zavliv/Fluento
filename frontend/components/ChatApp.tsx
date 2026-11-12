@@ -19,6 +19,7 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
 import { TeacherAvatar } from "./TeacherAvatar";
 import { LandingPage } from "./landing/LandingPage";
+import { useSiteSettings } from "./SiteSettings";
 import { TeacherDirectory } from "./TeacherDirectory";
 import { useAuth } from "./auth/AuthProvider";
 import { useToast } from "./ui/Toast";
@@ -34,6 +35,7 @@ export default function ChatApp() {
   const { theme, setTheme } = useTheme();
   const { online, model } = useBackendStatus();
   const toast = useToast();
+  const { signup_enabled: signupEnabled } = useSiteSettings();
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -43,13 +45,14 @@ export default function ChatApp() {
   const openTeacher = useCallback(
     (id: string | null) => {
       if (!user) {
-        router.push(id ? `/signup?teacher=${encodeURIComponent(id)}` : "/signup");
+        const page = signupEnabled ? "/signup" : "/login";
+        router.push(id ? `${page}?teacher=${encodeURIComponent(id)}` : page);
         return;
       }
       select(id);
       if (isMobile()) setSidebarOpen(false);
     },
-    [user, router, select],
+    [signupEnabled, user, router, select],
   );
 
   const pendingTeacher = params.get("teacher");

@@ -29,6 +29,7 @@ export type Teacher = {
   starters: string[];
   tags: string[];
   goals: TeacherGoal[];
+  languages: string[];
 };
 
 export type Persona = {
@@ -43,7 +44,7 @@ export type Persona = {
   temperature: number;
 };
 
-export type AdminTeacher = Teacher & {
+export type AdminTeacher = Omit<Teacher, "languages"> & {
   role: string;
   enabled: boolean;
   order: number;
@@ -58,4 +59,12 @@ export function teacherTheme(color: string) {
     "--accent-soft": `color-mix(in srgb, ${color} 14%, var(--bg))`,
     "--accent-ink": "var(--bg)",
   } as CSSProperties;
+}
+
+export function pickGuide(teachers: Teacher[], defaultId: string) {
+  return teachers.find((t) => t.id === defaultId) ?? teachers[0];
+}
+
+export function otherLanguages(teacher: Teacher) {
+  return teacher.languages.filter((l) => l.trim() && l.trim().toLowerCase() !== "english");
 }

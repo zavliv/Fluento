@@ -1,11 +1,25 @@
 "use client";
 
-import { ArrowRight, Briefcase, Check, Languages, Mic, Monitor, Moon, SpellCheck, Sun } from "lucide-react";
+import {
+  ArrowRight,
+  Briefcase,
+  Check,
+  Languages,
+  Mic,
+  Monitor,
+  Moon,
+  SpellCheck,
+  Sun,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
+import { useMemo } from "react";
 import type { Theme } from "@/hooks/useTheme";
 import type { User } from "@/lib/api";
-import type { Teacher } from "@/lib/teachers";
+import { listJoin, lowerFirst } from "@/lib/site";
+import { GOALS, otherLanguages, pickGuide, type Teacher } from "@/lib/teachers";
 import { IconButton } from "../IconButton";
+import { useSiteSettings } from "../SiteSettings";
 import { TeacherGrid } from "../TeacherGrid";
 import { Wordmark } from "../Wordmark";
 import { ConversationPreview } from "./ConversationPreview";
@@ -19,45 +33,74 @@ type Props = {
   onThemeChange: (theme: Theme) => void;
 };
 
-const STEPS = [
-  {
-    title: "Pick a teacher",
-    text: "Choose a teacher for your goal: everyday talk, interviews, grammar, exams and more.",
-  },
-  { title: "Talk or type", text: "Say anything in your own words. Tap the mic and your speech appears as you talk." },
-  {
-    title: "Learn from every reply",
-    text: "Your teacher answers naturally, fixes mistakes gently, and keeps you talking.",
-  },
-];
+type Feature = { icon: LucideIcon; title: string; text: string };
 
-const FEATURES = [
-  {
-    icon: Mic,
-    title: "Speak, don't just type",
-    text: "Practise out loud with live voice input, and hear replies read back to you.",
-  },
-  {
-    icon: SpellCheck,
-    title: "Corrections that stick",
-    text: "Every fix comes with the reason, so you stop repeating the same mistake.",
-  },
-  {
-    icon: Languages,
-    title: "Hindi help when stuck",
-    text: "Riya explains tricky points in Hindi or Hinglish, then guides you back to English.",
-  },
-  {
-    icon: Briefcase,
-    title: "Ready for real life",
-    text: "Prepare for interviews, IELTS and work emails with teachers who specialise in them.",
-  },
-];
+function landingCopy(teachers: Teacher[]) {
+  const goals = GOALS.filter((g) => teachers.some((t) => t.goals.includes(g.id))).map((g) => g.label.toLowerCase());
+  const steps = [
+    {
+      title: "Pick a teacher",
+      text: goals.length
+        ? `Choose a teacher for your goal: ${listJoin(goals)}.`
+        : "Choose the teacher whose style and specialty suit you.",
+    },
+    { title: "Talk or type", text: "Say anything in your own words. Tap the mic and your speech appears as you talk." },
+    {
+      title: "Learn from every reply",
+      text: "Your teacher answers naturally, fixes mistakes gently, and keeps you talking.",
+    },
+  ];
+
+  const features: Feature[] = [
+    {
+      icon: Mic,
+      title: "Speak, don't just type",
+      text: "Practise out loud with live voice input, and hear replies read back to you.",
+    },
+    {
+      icon: SpellCheck,
+      title: "Corrections that stick",
+      text: "Every fix comes with the reason, so you stop repeating the same mistake.",
+    },
+  ];
+  const helper = teachers.find((t) => otherLanguages(t).length > 0);
+  const helperLanguages = helper ? otherLanguages(helper) : [];
+  if (helper) {
+    features.push({
+      icon: Languages,
+      title: `${helperLanguages[0]} help when stuck`,
+      text: `${helper.name} explains tricky points in ${listJoin(helperLanguages, "or")}, then guides you back to English.`,
+    });
+  }
+  const specialists = teachers.filter((t) => t.goals.includes("work") || t.goals.includes("exams"));
+  features.push(
+    specialists.length
+      ? {
+          icon: Briefcase,
+          title: "Ready for real life",
+          text: `Prepare with teachers who specialise in ${listJoin(specialists.map((t) => lowerFirst(t.specialty)))}.`,
+        }
+      : {
+          icon: Briefcase,
+          title: "A teacher for every goal",
+          text: "Each teacher has their own specialty, so you can practise exactly what you need.",
+        },
+  );
+
+  const points = [
+    "Speak or type",
+    "Instant, gentle corrections",
+    helper ? `${helperLanguages[0]} help when you need it` : "Practise any time",
+  ];
+  return { steps, features, points };
+}
 
 const NEXT_THEME: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
 
 export function LandingPage({ teachers, user, onSelect, onLogout, theme, onThemeChange }: Props) {
-  const guide = teachers.find((t) => t.id === "maya") ?? teachers[0];
+  const { app_name, default_teacher_id, signup_enabled } = useSiteSettings();
+  const guide = pickGuide(teachers, default_teacher_id);
+  const { steps, features, points } = useMemo(() => landingCopy(teachers), [teachers]);
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
   const scrollTo = (id: string) => {
@@ -73,7 +116,7 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
             {[
               ["teachers", "Teachers"],
               ["how-it-works", "How it works"],
-              ["why-fluento", "Why Fluento"],
+              ["why-us", `Why ${app_name}`],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -108,12 +151,14 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
                 >
                   Log in
                 </Link>
-                <Link
-                  href="/signup"
-                  className="h-9 rounded-xl bg-ink px-4 text-sm leading-9 font-semibold text-bg transition-opacity hover:opacity-90"
-                >
-                  Sign up free
-                </Link>
+                {signup_enabled && (
+                  <Link
+                    href="/signup"
+                    className="h-9 rounded-xl bg-ink px-4 text-sm leading-9 font-semibold text-bg transition-opacity hover:opacity-90"
+                  >
+                    Sign up free
+                  </Link>
+                )}
               </>
             )}
           </div>
@@ -157,7 +202,7 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
           </div>
 
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
-            {["Speak or type", "Instant, gentle corrections", "Hindi help when you need it"].map((point) => (
+            {points.map((point) => (
               <li key={point} className="flex items-center gap-2">
                 <Check className="size-4 text-success" />
                 {point}
@@ -188,7 +233,7 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
         <div className="mx-auto max-w-6xl px-4 py-20 md:px-8">
           <SectionHeading eyebrow="How it works" title="From hello to fluent, one conversation at a time" />
           <ol className="mt-10 grid gap-4 md:grid-cols-3">
-            {STEPS.map((step, i) => (
+            {steps.map((step, i) => (
               <li key={step.title} className="rounded-2xl border border-line bg-surface p-6">
                 <span className="flex size-9 items-center justify-center rounded-xl bg-accent-soft font-mono text-sm font-bold text-accent">
                   {i + 1}
@@ -201,11 +246,13 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
         </div>
       </section>
 
-      <section id="why-fluento" className="scroll-mt-16 border-t border-line bg-sidebar/40">
+      <section id="why-us" className="scroll-mt-16 border-t border-line bg-sidebar/40">
         <div className="mx-auto max-w-6xl px-4 py-20 md:px-8">
-          <SectionHeading eyebrow="Why Fluento" title="Built for speaking, not just studying" />
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map(({ icon: Icon, title, text }) => (
+          <SectionHeading eyebrow={`Why ${app_name}`} title="Built for speaking, not just studying" />
+          <div
+            className={`mt-10 grid gap-4 sm:grid-cols-2 ${features.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}
+          >
+            {features.map(({ icon: Icon, title, text }) => (
               <div key={title} className="rounded-2xl border border-line bg-surface p-6">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-hover text-ink">
                   <Icon className="size-5" />
@@ -244,7 +291,9 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-subtle md:flex-row md:items-center md:justify-between md:px-8">
           <Wordmark />
-          <p>Learn English by talking with AI teachers. © {new Date().getFullYear()} Fluento</p>
+          <p>
+            Learn English by talking with AI teachers. © {new Date().getFullYear()} {app_name}
+          </p>
         </div>
       </footer>
     </div>

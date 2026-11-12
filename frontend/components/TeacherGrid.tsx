@@ -2,8 +2,9 @@
 
 import { ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import { GOALS, type Teacher, type TeacherGoal } from "@/lib/teachers";
+import { GOALS, pickGuide, type Teacher, type TeacherGoal } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
+import { useSiteSettings } from "./SiteSettings";
 import { TeacherAvatar } from "./TeacherAvatar";
 import { TeacherCard } from "./TeacherCard";
 
@@ -22,7 +23,8 @@ export function TeacherGrid({ teachers, myTeacherIds = [], onSelect, className }
     () => (filter === "all" ? teachers : teachers.filter((t) => t.goals.includes(filter))),
     [teachers, filter],
   );
-  const guide = teachers.find((t) => t.id === "maya") ?? teachers[0];
+  const { default_teacher_id } = useSiteSettings();
+  const guide = pickGuide(teachers, default_teacher_id);
 
   return (
     <div className={className}>
@@ -70,8 +72,7 @@ export function TeacherGrid({ teachers, myTeacherIds = [], onSelect, className }
             <div>
               <h3 className="text-[18px] font-bold tracking-[-0.015em] text-ink">Not sure where to start?</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-muted">
-                Most learners begin with {guide.name}. She&apos;s patient, keeps things simple and helps you get
-                comfortable speaking. You can add more teachers any time.
+                Start with {guide.name}. {guide.tagline} You can add more teachers any time.
               </p>
             </div>
             <div className="flex items-center justify-between gap-4 rounded-xl bg-hover p-3 pl-4">

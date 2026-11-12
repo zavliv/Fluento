@@ -56,7 +56,7 @@ export function AdminLoginForm() {
             </span>
             <div>
               <h1 className="text-lg leading-tight font-bold tracking-[-0.01em]">Team sign in</h1>
-              <p className="mt-1 text-sm text-muted">For Fluento team members only.</p>
+              <p className="mt-1 text-sm text-muted">For team members only.</p>
             </div>
           </div>
 

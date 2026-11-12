@@ -55,6 +55,7 @@ class TeacherPublic(BaseModel):
     starters: list[str]
     tags: list[str]
     goals: list[Goal]
+    languages: list[str]
 
 
 class TeacherAdmin(TeacherFields):
@@ -64,7 +65,8 @@ class TeacherAdmin(TeacherFields):
 
 
 def teacher_public(doc: dict) -> TeacherPublic:
-    return TeacherPublic(id=doc["_id"], **{k: doc.get(k) for k in TeacherPublic.model_fields if k != "id"})
+    fields = {k: doc.get(k) for k in TeacherPublic.model_fields if k not in ("id", "languages")}
+    return TeacherPublic(id=doc["_id"], languages=doc.get("persona", {}).get("languages", ["English"]), **fields)
 
 
 def teacher_admin(doc: dict) -> TeacherAdmin:

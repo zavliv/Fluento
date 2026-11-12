@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { cn } from "@/lib/utils";
+import { useSiteSettings } from "../SiteSettings";
 import { Wordmark } from "../Wordmark";
 import { useAuth } from "./AuthProvider";
 
@@ -15,7 +16,7 @@ const COPY = {
     title: "Welcome back",
     subtitle: "Log in to continue your conversations.",
     submit: "Log in",
-    switchText: "New to Fluento?",
+    switchText: "New here?",
     switchLink: "Create an account",
   },
   signup: {
@@ -41,7 +42,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { app_name, signup_enabled } = useSiteSettings();
   const copy = COPY[mode];
+  const closed = mode === "signup" && !signup_enabled;
 
   const teacher = params.get("teacher");
   const next = safeNext(params.get("next"));
@@ -71,89 +74,107 @@ export function AuthForm({ mode }: { mode: Mode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-ink">
       <header className="mx-auto flex h-16 w-full max-w-6xl items-center px-4 md:px-8">
-        <Link href="/" aria-label="Fluento home">
+        <Link href="/" aria-label={`${app_name} home`}>
           <Wordmark />
         </Link>
       </header>
 
       <main className="flex flex-1 items-start justify-center px-4 pt-[8vh] pb-16">
-        <div className="animate-in w-full max-w-[400px]">
-          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">{copy.title}</h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-muted">{copy.subtitle}</p>
+        {closed ? (
+          <div className="animate-in w-full max-w-[400px]">
+            <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">Sign-ups are closed</h1>
+            <p className="mt-2 text-[15px] leading-relaxed text-muted">
+              {app_name} isn&apos;t accepting new accounts right now. If you already have one, you can log in.
+            </p>
+            <Link
+              href={`/login${carry.size ? `?${carry}` : ""}`}
+              className="mt-8 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink text-[15px] font-semibold text-bg transition-opacity hover:opacity-90"
+            >
+              Log in
+              <ArrowRight className="size-4" />
+            </Link>
+          </div>
+        ) : (
+          <div className="animate-in w-full max-w-[400px]">
+            <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">{copy.title}</h1>
+            <p className="mt-2 text-[15px] leading-relaxed text-muted">{copy.subtitle}</p>
 
-          <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
-            {mode === "signup" && (
-              <AuthField label="Your name">
+            <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
+              {mode === "signup" && (
+                <AuthField label="Your name">
+                  <input
+                    required
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="What should your teachers call you?"
+                    className={inputClass}
+                  />
+                </AuthField>
+              )}
+              <AuthField label="Email">
                 <input
                   required
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="What should your teachers call you?"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   className={inputClass}
                 />
               </AuthField>
-            )}
-            <AuthField label="Email">
-              <input
-                required
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className={inputClass}
-              />
-            </AuthField>
-            <AuthField label="Password" hint={mode === "signup" ? "At least 8 characters." : undefined}>
-              <div className="relative">
-                <input
-                  required
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === "signup" ? "Create a password" : "Your password"}
-                  className={cn(inputClass, "pr-11")}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-subtle hover:bg-hover hover:text-ink"
-                >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </AuthField>
+              <AuthField label="Password" hint={mode === "signup" ? "At least 8 characters." : undefined}>
+                <div className="relative">
+                  <input
+                    required
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={mode === "signup" ? "Create a password" : "Your password"}
+                    className={cn(inputClass, "pr-11")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-subtle hover:bg-hover hover:text-ink"
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </AuthField>
 
-            {error && (
-              <p
-                role="alert"
-                className="rounded-xl border border-danger/25 bg-danger/6 px-3.5 py-2.5 text-sm text-danger"
+              {error && (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-danger/25 bg-danger/6 px-3.5 py-2.5 text-sm text-danger"
+                >
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink text-[15px] font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                {error}
+                {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                {copy.submit}
+                {!submitting && <ArrowRight className="size-4" />}
+              </button>
+            </form>
+
+            {(mode === "signup" || signup_enabled) && (
+              <p className="mt-6 text-center text-sm text-muted">
+                {copy.switchText}{" "}
+                <Link href={switchHref} className="font-semibold text-ink underline-offset-4 hover:underline">
+                  {copy.switchLink}
+                </Link>
               </p>
             )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink text-[15px] font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-60"
-            >
-              {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-              {copy.submit}
-              {!submitting && <ArrowRight className="size-4" />}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted">
-            {copy.switchText}{" "}
-            <Link href={switchHref} className="font-semibold text-ink underline-offset-4 hover:underline">
-              {copy.switchLink}
-            </Link>
-          </p>
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );

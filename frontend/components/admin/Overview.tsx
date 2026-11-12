@@ -40,7 +40,7 @@ export function Overview() {
 
   return (
     <>
-      <PageHeader title="Overview" description="Live numbers from your Fluento database." />
+      <PageHeader title="Overview" description="Live numbers from your database." />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map(({ label, value, note, icon: Icon }) => (

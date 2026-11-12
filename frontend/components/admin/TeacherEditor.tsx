@@ -443,7 +443,12 @@ function EditorForm({ initial, isNew }: { initial: AdminTeacher; isNew: boolean 
         <aside className="space-y-3 lg:sticky lg:top-6">
           <p className="text-xs font-semibold tracking-wider text-subtle uppercase">Live preview</p>
           <TeacherCard
-            teacher={{ ...draft, name: draft.name || "New teacher", specialty: draft.specialty || "Specialty" }}
+            teacher={{
+              ...draft,
+              languages: draft.persona.languages,
+              name: draft.name || "New teacher",
+              specialty: draft.specialty || "Specialty",
+            }}
             onSelect={() => {}}
             className="pointer-events-none !flex-col sm:!flex-row"
           />

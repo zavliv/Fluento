@@ -74,7 +74,7 @@ export function RulesEditor() {
     <>
       <PageHeader
         title="Shared rules"
-        description="Rules every teacher follows, added to the end of each system prompt. Use {name} for the teacher's name."
+        description="Rules every teacher follows, added to the end of each system prompt. Placeholders: {name} is the teacher's name, {app} is the app name, and {teachers} lists the other visible teachers with their specialties."
       />
 
       {loading && !sections ? (

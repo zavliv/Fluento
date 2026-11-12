@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AdminAuthProvider } from "@/components/admin/AdminAuthProvider";
 
 export const metadata: Metadata = {
-  title: { default: "Admin", template: "%s · Fluento Admin" },
+  title: { default: "Admin", template: "%s · Admin" },
   robots: { index: false, follow: false },
 };
 

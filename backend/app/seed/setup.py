@@ -3,6 +3,7 @@ import logging
 from app.config import settings
 from app.db import db, ensure_indexes, now
 from app.security import hash_password
+from app.seed.legacy import RULE_UPDATES
 from app.seed.rules import RULE_SECTIONS
 from app.seed.teachers import TEACHERS
 from app.services.app_settings import DEFAULTS, SETTINGS_ID
@@ -27,6 +28,8 @@ async def setup_database() -> None:
             [{"_id": r["id"], **{k: v for k, v in r.items() if k != "id"}, "updated_at": now()} for r in RULE_SECTIONS]
         )
         logger.info("Seeded %d rule sections", len(RULE_SECTIONS))
+
+    await _update_legacy_rules()
 
     await db.settings.update_one({"_id": SETTINGS_ID}, {"$setOnInsert": DEFAULTS}, upsert=True)
 
@@ -63,3 +66,10 @@ async def _move_admins_out_of_users() -> None:
         await db.users.delete_one({"_id": user["_id"]})
         logger.info("Moved admin %s to the admins collection", user["email"])
     await db.users.update_many({"role": {"$exists": True}}, {"$unset": {"role": ""}})
+
+
+async def _update_legacy_rules() -> None:
+    async for section in db.rules.find({"rules": {"$in": list(RULE_UPDATES)}}):
+        rules = [RULE_UPDATES.get(rule, rule) for rule in section["rules"]]
+        await db.rules.update_one({"_id": section["_id"]}, {"$set": {"rules": rules}})
+        logger.info("Updated rule placeholders in section %s", section["_id"])
