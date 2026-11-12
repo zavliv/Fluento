@@ -11,13 +11,13 @@ from app.db import db, now
 from app.schemas.level_test import LEVELS, LevelResult, LevelTestConfig
 from app.services.app_settings import get_app_settings
 from app.services.llm import complete
-from app.services.tasks import run_in_background
 
 logger = logging.getLogger("fluento.level_test")
 
 CONFIG_ID = "level_test"
 QUIZ_PER_LEVEL = 2
 QUIZ_START = 2
+FORMATS = ("fill", "listen", "judge")
 POOL_PER_LEVEL = 10
 PER_LEVEL_IN_TEST = 4
 MIN_PER_LEVEL = 2
@@ -45,6 +45,8 @@ Respond with JSON only."""
 EXAMINER_PROMPT = """You are the {app} placement examiner. You run a short, friendly English placement chat with a learner called {name}.
 The conversation has exactly {count} questions. You are now writing question {number} of {count}.
 Starting point: {start_level}.
+Topic the learner picked: {topic}. Build every question around this topic so the chat feels personal and fun,
+while still moving from everyday questions to past experiences, plans, opinions and hypothetical situations.
 
 - Ask exactly one question per message.
 - On question 1, greet the learner in one short sentence, say there are {count} quick questions and that they can type or speak their answers, then ask the first question.
@@ -52,7 +54,7 @@ Starting point: {start_level}.
 - From question 2, react to their last answer in a few friendly words, then ask the next question.
 - Never correct mistakes, teach, hint at their level, or give scores during the test.
 - If an answer is very short, off-topic or not in English, don't comment on it; simply move on.
-- Keep each message to 1-2 short sentences of plain English. No markdown, lists or emojis."""
+- Sound warm and curious, like a friendly person chatting, not an examiner. Keep each message to 1-2 short sentences of plain English. No markdown or lists."""
 
 GRADING_PROMPT = """You are an experienced CEFR examiner. You assess an English learner from a two-part placement test.
 
@@ -106,8 +108,20 @@ Return a JSON object: {"checks": [{"index": number, "correct": [indexes of every
 "completed": "the full sentence with the best option", "makes_sense": true or false}]}.
 Include every question. Respond with JSON only."""
 
+DEFAULT_TOPICS = [
+    "Travel",
+    "Food",
+    "Movies & music",
+    "Work & study",
+    "Sports",
+    "Technology",
+    "Family & friends",
+    "Nature",
+]
+
 DEFAULT_CONFIG = LevelTestConfig(
     enabled=True,
+    topics=DEFAULT_TOPICS,
     quiz_enabled=True,
     quiz_count=8,
     question_count=5,
@@ -240,18 +254,17 @@ async def pool_counts() -> dict[str, int]:
     return counts
 
 
-async def refill_pool() -> None:
+async def generate_more(batches: int = 1) -> None:
     if _refill["running"]:
         return
     _refill["running"] = True
     try:
-        for _ in range(MAX_REFILL_BATCHES):
-            if min((await pool_counts()).values()) >= POOL_PER_LEVEL:
-                break
+        for i in range(batches):
+            if i:
+                await asyncio.sleep(BATCH_PAUSE)
             await _generate_batch()
-            await asyncio.sleep(BATCH_PAUSE)
     except (groq.GroqError, json.JSONDecodeError, AttributeError, TypeError, ValueError) as exc:
-        logger.warning("Quiz bank refill failed: %s", exc)
+        logger.warning("Generating quiz questions failed: %s", exc)
     finally:
         _refill["running"] = False
 
@@ -275,7 +288,6 @@ async def build_quiz(user_id: ObjectId, count: int) -> dict | None:
         if ObjectId.is_valid(q["id"])
     ]
     if min((await pool_counts()).values()) < MIN_PER_LEVEL:
-        run_in_background(refill_pool())
         return None
     bank: list[dict] = []
     for level in LEVELS:
@@ -283,15 +295,14 @@ async def build_quiz(user_id: ObjectId, count: int) -> dict | None:
         if len(picked) < MIN_PER_LEVEL:
             picked = await _sample(level, [], PER_LEVEL_IN_TEST)
         bank += picked
-    run_in_background(refill_pool())
     if len({q["level"] for q in bank}) < len(LEVELS) - 1 or len(bank) < count:
         return None
     bank = [
         {k: q[k] for k in ("level", "skill", "question", "options", "answer_index")} | {"id": str(q["_id"])}
         for q in bank
     ]
-    quiz = {"bank": bank, "asked": [], "total": count, "step": QUIZ_START, "current": None}
-    quiz["current"] = _pick(quiz)
+    quiz = {"bank": bank, "asked": [], "total": count, "step": QUIZ_START, "current": None, "last": None}
+    _next(quiz)
     return quiz
 
 
@@ -310,12 +321,35 @@ def _pick(quiz: dict) -> str | None:
     return None
 
 
+def _next(quiz: dict) -> None:
+    quiz["current"] = _pick(quiz) if len(quiz["asked"]) < quiz["total"] else None
+    quiz["format"] = FORMATS[len(quiz["asked"]) % len(FORMATS)]
+    quiz["shown"] = None
+    if quiz["current"] and quiz["format"] == "judge":
+        item = next(q for q in quiz["bank"] if q["id"] == quiz["current"])
+        right = random.random() < 0.5
+        wrong = [i for i in range(len(item["options"])) if i != item["answer_index"]]
+        quiz["shown"] = item["answer_index"] if right else random.choice(wrong)
+
+
 def answer_quiz(quiz: dict, choice: int) -> None:
     item = next(q for q in quiz["bank"] if q["id"] == quiz["current"])
-    correct = choice == item["answer_index"]
-    quiz["asked"].append({"id": item["id"], "chosen": choice, "correct": correct})
+    fmt = quiz.get("format", "fill")
+    if fmt == "judge":
+        says_right = choice == 0
+        correct = says_right == (quiz["shown"] == item["answer_index"])
+    else:
+        correct = choice == item["answer_index"]
+    quiz["asked"].append(
+        {"id": item["id"], "chosen": choice, "correct": correct, "format": fmt, "shown": quiz.get("shown")}
+    )
+    quiz["last"] = {
+        "correct": correct,
+        "answer": item["options"][item["answer_index"]],
+        "sentence": item["question"].replace("___", item["options"][item["answer_index"]]),
+    }
     quiz["step"] = min(len(LEVELS) - 1, quiz["step"] + 1) if correct else max(0, quiz["step"] - 1)
-    quiz["current"] = _pick(quiz) if len(quiz["asked"]) < quiz["total"] else None
+    _next(quiz)
 
 
 def quiz_level(quiz: dict | None) -> str | None:
@@ -335,7 +369,8 @@ def _quiz_summary(quiz: dict | None) -> str:
         return "Part 1 (quick check): not taken."
     bank = {q["id"]: q for q in quiz["bank"]}
     lines = [
-        f"- {bank[a['id']]['level']} {bank[a['id']]['skill']}: {'correct' if a['correct'] else 'wrong'}"
+        f"- {bank[a['id']]['level']} {bank[a['id']]['skill']} ({a.get('format', 'fill')}): "
+        f"{'correct' if a['correct'] else 'wrong'}"
         for a in quiz["asked"]
     ]
     correct = sum(a["correct"] for a in quiz["asked"])
@@ -361,6 +396,7 @@ async def next_question(test: dict, config: LevelTestConfig, name: str) -> str:
             "count": str(test["question_count"]),
             "number": str(number),
             "start_level": start,
+            "topic": test.get("topic") or "anything they enjoy",
         },
     )
     history = [

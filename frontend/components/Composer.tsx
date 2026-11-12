@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Check, Mic, Square, X } from "lucide-react";
+import { ArrowUp, Check, LoaderCircle, Mic, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { joinText } from "@/lib/audio";
@@ -14,6 +14,7 @@ type Props = {
   autoFocus?: boolean;
   placeholder?: string;
   hint?: string;
+  stoppable?: boolean;
 };
 
 const MAX_HEIGHT = 220;
@@ -25,6 +26,7 @@ export function Composer({
   autoFocus,
   placeholder = "Type your message…",
   hint = "Your teacher corrects your English as you go. AI can make mistakes.",
+  stoppable = true,
 }: Props) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -220,7 +222,14 @@ export function Composer({
                     <Mic className="size-[18px]" />
                   </button>
 
-                  {isStreaming ? (
+                  {isStreaming && !stoppable ? (
+                    <span
+                      aria-label="Waiting for the next question"
+                      className="flex size-9 items-center justify-center rounded-full bg-hover text-subtle"
+                    >
+                      <LoaderCircle className="size-[18px] animate-spin" />
+                    </span>
+                  ) : isStreaming ? (
                     <button
                       type="button"
                       onClick={(e) => {

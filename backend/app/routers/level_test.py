@@ -10,6 +10,7 @@ from app.schemas.level_test import (
     LevelTestPublicConfig,
     LevelTestState,
     QuizAnswerRequest,
+    StartRequest,
     history_item,
     level_test_out,
 )
@@ -78,6 +79,7 @@ async def state(user: dict = Depends(current_user)) -> LevelTestState:
     return LevelTestState(
         config=LevelTestPublicConfig(
             enabled=config.enabled,
+            topics=config.topics,
             quiz_enabled=config.quiz_enabled,
             quiz_count=config.quiz_count,
             question_count=config.question_count,
@@ -90,7 +92,7 @@ async def state(user: dict = Depends(current_user)) -> LevelTestState:
 
 
 @router.post("", status_code=201)
-async def start(user: dict = Depends(current_user)) -> LevelTestOut:
+async def start(body: StartRequest | None = None, user: dict = Depends(current_user)) -> LevelTestOut:
     config = await get_config()
     if not config.enabled:
         raise HTTPException(status_code=403, detail="The level test is turned off right now.")
@@ -101,6 +103,7 @@ async def start(user: dict = Depends(current_user)) -> LevelTestOut:
         "phase": "chat",
         "question_count": config.question_count,
         "messages": [],
+        "topic": " ".join((body.topic or "").split())[:60] if body else "",
         "created_at": now(),
     }
     if config.quiz_enabled:

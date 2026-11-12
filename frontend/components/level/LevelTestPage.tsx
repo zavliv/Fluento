@@ -1,37 +1,15 @@
 "use client";
 
-import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUp,
-  Check,
-  ChevronDown,
-  ClipboardCheck,
-  ListChecks,
-  LoaderCircle,
-  MessagesSquare,
-  Mic,
-  Pause,
-  RotateCcw,
-  Target,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  api,
-  CEFR_LEVELS,
-  LEVEL_NAMES,
-  type CefrLevel,
-  type LevelHistoryItem,
-  type LevelTest,
-  type LevelTestState,
-  type QuizQuestion,
-} from "@/lib/api";
+import { ArrowRight, Check, LoaderCircle, Mic, RotateCcw, Shuffle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, CEFR_LEVELS, LEVEL_NAMES, type CefrLevel, type LevelTest, type LevelTestState } from "@/lib/api";
 import type { Teacher } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 import { Composer } from "../Composer";
-import { TeacherAvatar } from "../TeacherAvatar";
 import { useToast } from "../ui/Toast";
+import { ResultView } from "./Results";
+import { ExaminerAvatar, LevelBadge, PrimaryButton, SecondaryButton, Shell, when } from "./shared";
+import { JourneyBar, WarmUp } from "./WarmUp";
 
 type Props = {
   teachers: Teacher[];
@@ -40,30 +18,26 @@ type Props = {
   onCompleted: () => void;
 };
 
-type Phase = "intro" | "test" | "result";
+type Phase = "intro" | "topic" | "test" | "interlude" | "reveal" | "result";
 
-const SKILLS = [
-  ["grammar", "Grammar"],
-  ["vocabulary", "Vocabulary"],
-  ["fluency", "Fluency"],
-  ["comprehension", "Understanding"],
-] as const;
+const TOPIC_EMOJI: Record<string, string> = {
+  travel: "✈️",
+  food: "🍜",
+  "movies & music": "🎬",
+  "work & study": "💼",
+  sports: "⚽",
+  technology: "💡",
+  "family & friends": "👨‍👩‍👧",
+  nature: "🌿",
+};
 
-const OPTION_KEYS = ["A", "B", "C", "D"];
-
-function when(value: string) {
-  const days = Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000);
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days} days ago`;
-  return shortDate(value);
-}
-
-function shortDate(value: string) {
-  return new Date(value).toLocaleDateString([], { day: "numeric", month: "short" });
-}
-
-const rank = (level: CefrLevel) => CEFR_LEVELS.indexOf(level);
+const GRADING_LINES = [
+  "Reading your answers…",
+  "Checking grammar and vocabulary…",
+  "Listening for fluency…",
+  "Finding your best teacher…",
+  "Almost there…",
+];
 
 export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted }: Props) {
   const toast = useToast();
@@ -90,16 +64,17 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
 
   const finished = (done: LevelTest) => {
     setTest(done);
-    setPhase("result");
+    setPhase("reveal");
     load();
     onCompleted();
   };
 
-  const start = async () => {
+  const start = async (topic: string) => {
     setBusy(true);
-    setError(null);
     try {
-      setTest(await api.startLevelTest());
+      const created = await api.startLevelTest(topic);
+      setTest(created);
+      setError(null);
       setPhase("test");
     } catch (err) {
       toast({ message: err instanceof Error ? err.message : "Couldn't start the test" });
@@ -108,27 +83,12 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
     }
   };
 
-  const run = async (action: () => Promise<LevelTest>, rollback?: LevelTest) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await action();
-      if (next.status === "completed") finished(next);
-      else setTest(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      if (rollback) setTest(rollback);
-    } finally {
-      setBusy(false);
-    }
+  const advanceWarmUp = (next: LevelTest) => {
+    setTest(next);
+    if (next.phase !== "quiz") setPhase("interlude");
   };
 
-  const answerQuiz = (choice: number) => {
-    if (!test || busy) return;
-    void run(() => api.answerLevelQuiz(test.id, choice));
-  };
-
-  const answerChat = (text: string, voice: boolean) => {
+  const answerChat = async (text: string, voice: boolean) => {
     if (!test || busy) return;
     const before = test;
     const optimistic: LevelTest = {
@@ -136,9 +96,38 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
       answered: test.answered + 1,
       messages: [...test.messages, { role: "learner", content: text.trim(), mode: voice ? "voice" : "typed" }],
     };
-    setTest(optimistic);
     const last = optimistic.answered >= test.question_count;
-    void run(() => api.answerLevelTest(test.id, text, voice ? "voice" : "typed"), last ? undefined : before);
+    setTest(optimistic);
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.answerLevelTest(test.id, text, voice ? "voice" : "typed");
+      if (next.status === "completed") finished(next);
+      else setTest(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      if (!last) setTest(before);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const retryGrading = async () => {
+    if (!test) return;
+    setBusy(true);
+    setError(null);
+    try {
+      finished(await api.gradeLevelTest(test.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pause = () => {
+    setState((s) => (s && test?.status === "in_progress" ? { ...s, current: test } : s));
+    setPhase("intro");
   };
 
   if (loadError) {
@@ -156,19 +145,47 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
     );
   }
 
-  if (phase === "test" && test) {
-    return test.phase === "quiz" && test.quiz?.current ? (
-      <QuizView test={test} busy={busy} error={error} onChoose={answerQuiz} onPause={() => pause()} />
-    ) : (
-      <ChatView
+  if (phase === "topic") {
+    return (
+      <TopicPicker
+        topics={state.config.topics}
+        busy={busy}
+        onPick={(topic) => void start(topic)}
+        onBack={() => setPhase("intro")}
+      />
+    );
+  }
+
+  if (phase === "test" && test?.phase === "quiz" && test.quiz?.current) {
+    return (
+      <WarmUp
+        test={test}
+        onAnswer={(choice) => api.answerLevelQuiz(test.id, choice)}
+        onAdvance={advanceWarmUp}
+        onPause={pause}
+      />
+    );
+  }
+
+  if (phase === "interlude" && test) {
+    return <Interlude test={test} onContinue={() => setPhase("test")} />;
+  }
+
+  if ((phase === "test" || phase === "interlude") && test) {
+    return (
+      <ChatRound
         test={test}
         busy={busy}
         error={error}
-        onAnswer={answerChat}
-        onRetryGrading={() => void run(() => api.gradeLevelTest(test.id))}
-        onPause={() => pause()}
+        onAnswer={(text, voice) => void answerChat(text, voice)}
+        onRetryGrading={() => void retryGrading()}
+        onPause={pause}
       />
     );
+  }
+
+  if (phase === "reveal" && test?.result) {
+    return <Reveal level={test.result.level} onDone={() => setPhase("result")} />;
   }
 
   const shown = phase === "result" ? (test?.result ? test : state.latest) : null;
@@ -180,7 +197,7 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
         teachers={teachers}
         onOpenTeacher={onOpenTeacher}
         onPractise={onPractise}
-        onRetake={() => void start()}
+        onRetake={() => setPhase("topic")}
         retaking={busy}
       />
     );
@@ -189,8 +206,7 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
   return (
     <Intro
       state={state}
-      busy={busy}
-      onStart={() => void start()}
+      onStart={() => setPhase("topic")}
       onResume={(current) => {
         setTest(current);
         setError(null);
@@ -202,352 +218,244 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
       }}
     />
   );
-
-  function pause() {
-    setState((s) => (s && test?.status === "in_progress" ? { ...s, current: test } : s));
-    setPhase("intro");
-  }
-}
-
-function Shell({ children, wide }: { children: ReactNode; wide?: boolean }) {
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className={cn("mx-auto w-full px-4 py-10 md:px-8", wide ? "max-w-4xl" : "max-w-3xl")}>{children}</div>
-    </div>
-  );
-}
-
-function Panel({ title, children, className }: { title?: string; children: ReactNode; className?: string }) {
-  return (
-    <section className={cn("rounded-2xl border border-line bg-surface p-5", className)}>
-      {title && <h2 className="mb-3 text-[15px] font-semibold text-ink">{title}</h2>}
-      {children}
-    </section>
-  );
 }
 
 // Intro
 
 function Intro({
   state,
-  busy,
   onStart,
   onResume,
   onShowResult,
 }: {
   state: LevelTestState;
-  busy: boolean;
   onStart: () => void;
   onResume: (test: LevelTest) => void;
   onShowResult: () => void;
 }) {
-  const { config, current, latest, history } = state;
-  const minutes = Math.max(3, Math.round((config.quiz_enabled ? config.quiz_count * 0.3 : 0) + config.question_count));
-  const parts = [
-    ...(config.quiz_enabled
-      ? [
-          {
-            icon: ListChecks,
-            title: "Quick check",
-            text: `${config.quiz_count} multiple-choice grammar and vocabulary questions. They adapt to you: get one right and the next is harder.`,
-          },
-        ]
-      : []),
-    {
-      icon: MessagesSquare,
-      title: "Conversation",
-      text: `${config.question_count} short questions to answer in your own words. Type, or tap the mic and speak.`,
-    },
-    {
-      icon: Target,
-      title: "Your results",
-      text: "Your CEFR level, skill scores, feedback on every answer and a study plan with the right teachers.",
-    },
+  const { config, current, latest } = state;
+  const minutes = Math.max(
+    3,
+    Math.round((config.quiz_enabled ? config.quiz_count * 0.25 : 0) + config.question_count * 0.8),
+  );
+  const stops = [
+    ...(config.quiz_enabled ? [{ title: "Warm-up", text: `${config.quiz_count} quick rounds` }] : []),
+    { title: "Chat", text: `${config.question_count} questions on a topic you pick` },
+    { title: "Your level", text: "Plus your perfect teacher" },
   ];
-
-  const progress = current
-    ? current.phase === "quiz" && current.quiz
-      ? `quick check, question ${current.quiz.answered + 1} of ${current.quiz.total}`
-      : `conversation, question ${Math.min(current.answered + 1, current.question_count)} of ${current.question_count}`
-    : "";
 
   return (
     <Shell>
-      <header className="animate-in">
-        <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[34px]">Level test</h1>
-        <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">
-          Find your English level on the CEFR scale, from A1 to C2, in about {minutes} minutes. Your teachers use the
-          result to pitch their English at the right level for you.
+      <div className="animate-in rounded-3xl border border-line bg-surface px-6 py-10 text-center md:px-12 md:py-14">
+        <p className="text-sm font-semibold text-accent">About {minutes} minutes · no pressure</p>
+        <h1 className="mx-auto mt-3 max-w-lg text-[34px] leading-[1.1] font-bold tracking-[-0.03em] text-ink md:text-[44px]">
+          How good is your English, really?
+        </h1>
+        <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-muted">
+          Play a few quick rounds, then chat about something you love. We&apos;ll find your level from A1 to C2.
         </p>
-      </header>
 
-      {latest?.result && (
-        <div className="mt-7 flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-surface p-5">
-          <LevelBadge level={latest.result.level} />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-ink">
-              Your level: {latest.result.level} · {LEVEL_NAMES[latest.result.level]}
-            </p>
-            <p className="mt-0.5 text-sm text-muted">
-              Tested {when(latest.completed_at ?? latest.created_at)}
-              {history.length > 1 && ` · ${history.length} tests taken`}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onShowResult}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-semibold text-ink transition-colors hover:border-accent/40"
-          >
-            See result
-            <ArrowRight className="size-4" />
-          </button>
-        </div>
-      )}
+        <ol className="mx-auto mt-9 flex max-w-xl items-start justify-center">
+          {stops.map((stop, i) => (
+            <li key={stop.title} className="relative flex flex-1 flex-col items-center px-2">
+              {i > 0 && <span className="absolute top-4 right-1/2 -left-1/2 h-0.5 bg-line" aria-hidden />}
+              <span className="relative z-10 flex size-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-ink ring-4 ring-surface">
+                {i + 1}
+              </span>
+              <span className="mt-2 text-sm font-semibold text-ink">{stop.title}</span>
+              <span className="mt-0.5 text-xs leading-snug text-muted">{stop.text}</span>
+            </li>
+          ))}
+        </ol>
 
-      {!config.enabled ? (
-        <p className="mt-7 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">
-          The level test is turned off right now. Please check back later.
-        </p>
-      ) : (
-        <>
-          <ol className={cn("mt-7 grid gap-3", parts.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
-            {parts.map(({ icon: Icon, title, text }, i) => (
-              <li key={title} className="rounded-2xl border border-line bg-surface p-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex size-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                    <Icon className="size-[18px]" />
-                  </span>
-                  <span className="text-xs font-semibold tracking-wider text-subtle uppercase">
-                    {i < parts.length - 1 ? `Part ${i + 1}` : "Then"}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm font-semibold text-ink">{title}</p>
-                <p className="mt-1 text-sm leading-relaxed text-muted">{text}</p>
-              </li>
-            ))}
-          </ol>
-
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+        {!config.enabled ? (
+          <p className="mx-auto mt-9 max-w-sm rounded-xl bg-hover px-4 py-3 text-sm text-muted">
+            The level test is turned off right now. Please check back later.
+          </p>
+        ) : (
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             {current ? (
               <>
                 <PrimaryButton onClick={() => onResume(current)}>
-                  Continue · {progress}
+                  Continue where you left off
                   <ArrowRight className="size-4" />
                 </PrimaryButton>
-                <SecondaryButton onClick={onStart} disabled={busy}>
-                  {busy ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+                <SecondaryButton onClick={onStart}>
+                  <RotateCcw className="size-4" />
                   Start over
                 </SecondaryButton>
               </>
             ) : (
-              <PrimaryButton onClick={onStart} disabled={busy}>
-                {busy && <LoaderCircle className="size-4 animate-spin" />}
-                {latest ? "Retake the test" : "Start the test"}
-                {!busy && <ArrowRight className="size-4" />}
+              <PrimaryButton onClick={onStart}>
+                {latest ? "Play again" : "Let's go"}
+                <ArrowRight className="size-4" />
               </PrimaryButton>
             )}
           </div>
-          <p className="mt-3 text-xs text-subtle">
-            Don&apos;t worry about mistakes, and don&apos;t look anything up. Nothing is corrected during the test.
-          </p>
-        </>
+        )}
+      </div>
+
+      {latest?.result && (
+        <button
+          type="button"
+          onClick={onShowResult}
+          className="mt-4 flex w-full items-center gap-4 rounded-2xl border border-line bg-surface p-4 text-left transition-colors hover:border-accent/40"
+        >
+          <LevelBadge level={latest.result.level} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-ink">
+              Last result: {latest.result.level} · {LEVEL_NAMES[latest.result.level]}
+            </span>
+            <span className="block text-sm text-muted">Tested {when(latest.completed_at ?? latest.created_at)}</span>
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-ink">
+            See result
+            <ArrowRight className="size-4" />
+          </span>
+        </button>
       )}
     </Shell>
   );
 }
 
-function PrimaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className="inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-60"
-    />
-  );
-}
+// Topic
 
-function SecondaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className="inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold text-ink transition-colors hover:border-accent/40 disabled:opacity-60"
-    />
-  );
-}
-
-// Test header
-
-function TestHeader({
-  part,
-  label,
-  done,
-  total,
-  onPause,
-}: {
-  part: string | null;
-  label: string;
-  done: number;
-  total: number;
-  onPause?: () => void;
-}) {
-  const progress = total ? (done / total) * 100 : 0;
-  return (
-    <div className="border-b border-line/70">
-      <div className="mx-auto flex w-full max-w-3xl items-center gap-4 px-4 py-3 md:px-6">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3 text-xs">
-            <span className="truncate font-semibold text-ink">
-              {part && <span className="font-normal text-subtle">{part} · </span>}
-              {label}
-            </span>
-            <span className="text-subtle tabular-nums">{Math.round(progress)}%</span>
-          </div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-hover">
-            <div
-              className="h-full rounded-full bg-accent transition-[width] duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-        {onPause && (
-          <button
-            type="button"
-            onClick={onPause}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-muted transition-colors hover:bg-hover hover:text-ink"
-          >
-            <Pause className="size-3.5" />
-            Pause
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Quick check
-
-function QuizView({
-  test,
+function TopicPicker({
+  topics,
   busy,
-  error,
-  onChoose,
-  onPause,
+  onPick,
+  onBack,
 }: {
-  test: LevelTest;
+  topics: string[];
   busy: boolean;
-  error: string | null;
-  onChoose: (choice: number) => void;
-  onPause: () => void;
+  onPick: (topic: string) => void;
+  onBack: () => void;
 }) {
-  const quiz = test.quiz!;
-  const question = quiz.current!;
-  const [chosen, setChosen] = useState<{ id: string; index: number } | null>(null);
-  const picked = chosen?.id === question.id ? chosen.index : null;
+  const [picked, setPicked] = useState<string | null>(null);
+  const pick = (topic: string) => {
+    if (busy) return;
+    setPicked(topic);
+    onPick(topic);
+  };
 
-  const choose = useCallback(
-    (index: number) => {
-      if (busy) return;
-      setChosen({ id: question.id, index });
-      onChoose(index);
-    },
-    [busy, question.id, onChoose],
+  return (
+    <Shell>
+      <div className="animate-in text-center">
+        <p className="text-sm font-semibold text-accent">Before we start</p>
+        <h1 className="mt-2 text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[34px]">
+          What do you love talking about?
+        </h1>
+        <p className="mx-auto mt-2 max-w-md text-[15px] text-muted">
+          Pick a topic. The chat part of your test will be all about it.
+        </p>
+      </div>
+
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {topics.map((topic, i) => {
+          const chosen = picked === topic;
+          return (
+            <button
+              key={topic}
+              type="button"
+              onClick={() => pick(topic)}
+              disabled={busy}
+              style={{ animationDelay: `${i * 40}ms` }}
+              className={cn(
+                "animate-in flex h-28 flex-col items-center justify-center gap-2 rounded-2xl border bg-surface px-3 text-center transition-all",
+                chosen
+                  ? "border-accent bg-accent-soft"
+                  : "border-line hover:-translate-y-0.5 hover:border-accent/50 disabled:opacity-50",
+              )}
+            >
+              <span className="text-[28px] leading-none" aria-hidden>
+                {chosen && busy ? (
+                  <LoaderCircle className="size-7 animate-spin text-accent" />
+                ) : (
+                  (TOPIC_EMOJI[topic.toLowerCase()] ?? "💬")
+                )}
+              </span>
+              <span className="text-sm font-semibold text-ink">{topic}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 flex items-center justify-center gap-3">
+        <SecondaryButton onClick={onBack} disabled={busy}>
+          Back
+        </SecondaryButton>
+        <SecondaryButton
+          onClick={() => topics.length && pick(topics[Math.floor(Math.random() * topics.length)])}
+          disabled={busy || topics.length === 0}
+        >
+          <Shuffle className="size-4" />
+          Surprise me
+        </SecondaryButton>
+      </div>
+    </Shell>
   );
+}
+
+// Interlude
+
+function Interlude({ test, onContinue }: { test: LevelTest; onContinue: () => void }) {
+  const quiz = test.quiz;
+  const score = quiz ? quiz.correct / Math.max(1, quiz.total) : 0;
+  const title = score >= 0.85 ? "Impressive!" : score >= 0.6 ? "Great warm-up!" : "Warm-up done!";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const key = e.key.toUpperCase();
-      const index = OPTION_KEYS.indexOf(key) >= 0 ? OPTION_KEYS.indexOf(key) : ["1", "2", "3", "4"].indexOf(key);
-      if (index >= 0) {
-        e.preventDefault();
-        choose(index);
-      }
+      if (e.key === "Enter") onContinue();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [choose]);
+  }, [onContinue]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <TestHeader
-        part="Part 1 of 2"
-        label={`Quick check · question ${quiz.answered + 1} of ${quiz.total}`}
-        done={quiz.answered}
-        total={quiz.total}
-        onPause={onPause}
+      <JourneyBar
+        stage="chat"
+        warm={quiz ? { done: quiz.total, total: quiz.total } : null}
+        chat={{ done: 0, total: test.question_count }}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div key={question.id} className="animate-in mx-auto w-full max-w-2xl px-4 py-10 md:px-6">
-          <p className="text-xs font-semibold tracking-wider text-subtle uppercase">
-            {question.skill === "grammar" ? "Grammar" : "Vocabulary"} · choose the best answer
-          </p>
-          <QuizSentence question={question} filled={picked === null ? null : question.options[picked]} />
-          <div className="mt-7 grid gap-2.5 sm:grid-cols-2">
-            {question.options.map((option, i) => (
-              <button
-                key={option}
-                type="button"
-                disabled={busy}
-                onClick={() => choose(i)}
-                className={cn(
-                  "flex min-h-14 items-center gap-3 rounded-xl border px-4 py-3 text-left text-[15px] transition-all",
-                  picked === i
-                    ? "border-accent bg-accent-soft font-semibold text-ink"
-                    : "border-line bg-surface text-ink hover:border-accent/50 disabled:opacity-60",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold",
-                    picked === i ? "bg-accent text-accent-ink" : "bg-hover text-muted",
-                  )}
-                >
-                  {picked === i && busy ? <LoaderCircle className="size-3.5 animate-spin" /> : OPTION_KEYS[i]}
-                </span>
-                {option}
-              </button>
-            ))}
-          </div>
-          <p className="mt-4 text-center text-xs text-subtle">
-            Press <kbd className="kbd">A</kbd>–<kbd className="kbd">D</kbd> or <kbd className="kbd">1</kbd>–
-            <kbd className="kbd">4</kbd> to answer. If you don&apos;t know, take your best guess.
-          </p>
-          {error && (
-            <p
-              role="alert"
-              className="mt-5 rounded-xl border border-danger/25 bg-danger/6 px-4 py-3 text-sm text-danger"
-            >
-              {error}
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-10">
+        <div className="animate-in w-full max-w-md text-center">
+          <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-success/12 text-success">
+            <Check className="size-8" strokeWidth={2.5} />
+          </span>
+          <h1 className="mt-5 text-[30px] leading-tight font-bold tracking-[-0.025em] text-ink">{title}</h1>
+          {quiz && (
+            <p className="mt-2 text-[15px] text-muted">
+              You got{" "}
+              <span className="font-semibold text-ink">
+                {quiz.correct} of {quiz.total}
+              </span>{" "}
+              and reached <span className="font-semibold text-ink">{quiz.climb}</span> on the difficulty ladder.
             </p>
           )}
+          <div className="mt-7 rounded-2xl border border-line bg-surface p-5 text-left">
+            <p className="text-xs font-semibold tracking-wider text-subtle uppercase">Next up · Chat</p>
+            <p className="mt-2 text-sm leading-relaxed text-ink">
+              {test.question_count} friendly questions. Answer in your own words, there are no wrong answers here.
+            </p>
+            <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+              <Mic className="size-4 text-accent" />
+              Try speaking your answers: it&apos;s great practice and it counts.
+            </p>
+          </div>
+          <PrimaryButton onClick={onContinue} className="mt-7">
+            Let&apos;s chat
+            <ArrowRight className="size-4" />
+          </PrimaryButton>
         </div>
       </div>
     </div>
   );
 }
 
-function QuizSentence({ question, filled }: { question: QuizQuestion; filled: string | null }) {
-  const [before, ...rest] = question.question.split("___");
-  return (
-    <p className="mt-3 text-[22px] leading-relaxed font-semibold tracking-[-0.01em] text-ink md:text-[26px]">
-      {before}
-      <span
-        className={cn(
-          "mx-1 inline-block min-w-24 border-b-2 px-1 text-center",
-          filled ? "border-accent text-accent" : "border-subtle text-transparent",
-        )}
-      >
-        {filled ?? "…"}
-      </span>
-      {rest.join("___")}
-    </p>
-  );
-}
+// Chat
 
-// Conversation
-
-function ChatView({
+function ChatRound({
   test,
   busy,
   error,
@@ -564,30 +472,32 @@ function ChatView({
 }) {
   const end = useRef<HTMLDivElement>(null);
   const allAnswered = test.answered >= test.question_count;
-  const current = Math.min(test.answered + 1, test.question_count);
-  const hasQuiz = Boolean(test.quiz);
+  const [line, setLine] = useState(0);
 
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [test.messages.length, busy]);
 
+  useEffect(() => {
+    if (!(busy && allAnswered)) return;
+    const timer = window.setInterval(() => setLine((l) => Math.min(l + 1, GRADING_LINES.length - 1)), 1800);
+    return () => {
+      window.clearInterval(timer);
+      setLine(0);
+    };
+  }, [busy, allAnswered]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <TestHeader
-        part={hasQuiz ? "Part 2 of 2" : null}
-        label={allAnswered ? "All questions answered" : `Conversation · question ${current} of ${test.question_count}`}
-        done={test.answered}
-        total={test.question_count}
+      <JourneyBar
+        stage="chat"
+        warm={test.quiz ? { done: test.quiz.total, total: test.quiz.total } : null}
+        chat={{ done: test.answered, total: test.question_count }}
         onPause={allAnswered ? undefined : onPause}
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 md:px-6">
-          {hasQuiz && test.answered === 0 && (
-            <p className="animate-in rounded-xl bg-hover px-4 py-3 text-center text-sm text-muted">
-              Quick check done. Now a short conversation: answer in your own words, by typing or with the mic.
-            </p>
-          )}
           {test.messages.map((m, i) =>
             m.role === "examiner" ? (
               <div key={i} className="animate-in flex max-w-[85%] gap-3">
@@ -615,9 +525,9 @@ function ChatView({
             <div className="flex items-center gap-3">
               <ExaminerAvatar />
               {allAnswered ? (
-                <span className="flex items-center gap-2 text-sm text-muted">
+                <span key={line} className="animate-in flex items-center gap-2 text-sm text-muted">
                   <LoaderCircle className="size-4 animate-spin" />
-                  Checking your answers… this takes a few seconds.
+                  {GRADING_LINES[line]}
                 </span>
               ) : (
                 <span className="flex gap-1 rounded-2xl border border-line bg-surface px-4 py-3.5" aria-label="Typing">
@@ -653,6 +563,17 @@ function ChatView({
 
       {!allAnswered && (
         <div className="mx-auto w-full max-w-3xl px-4 pb-3 md:px-6">
+          <div className="mb-2 flex justify-center gap-1.5" aria-hidden>
+            {Array.from({ length: test.question_count }, (_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i < test.answered ? "w-5 bg-accent" : i === test.answered ? "w-5 bg-ink" : "w-1.5 bg-line",
+                )}
+              />
+            ))}
+          </div>
           <Composer
             key={test.id}
             onSend={(text, meta) => onAnswer(text, meta.voice)}
@@ -660,7 +581,8 @@ function ChatView({
             isStreaming={busy}
             autoFocus
             placeholder="Type or speak your answer…"
-            hint="Answer in your own words. Speaking counts too: tap the mic."
+            hint="No wrong answers here. Speaking counts too: tap the mic."
+            stoppable={false}
           />
         </div>
       )}
@@ -668,355 +590,103 @@ function ChatView({
   );
 }
 
-function ExaminerAvatar() {
-  return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink text-bg">
-      <ClipboardCheck className="size-4" />
-    </span>
-  );
+// Reveal
+
+const CONFETTI_COLORS = ["#0d9488", "#f59e0b", "#e11d48", "#6366f1", "#22c55e", "#0ea5e9"];
+
+function Confetti() {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = box.current;
+    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const pieces: HTMLSpanElement[] = [];
+    for (let i = 0; i < 90; i++) {
+      const piece = document.createElement("span");
+      const size = 6 + Math.random() * 6;
+      Object.assign(piece.style, {
+        position: "absolute",
+        top: "-20px",
+        left: `${Math.random() * 100}%`,
+        width: `${size}px`,
+        height: `${size * (Math.random() > 0.5 ? 0.45 : 1)}px`,
+        background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        borderRadius: Math.random() > 0.6 ? "999px" : "2px",
+      });
+      root.appendChild(piece);
+      pieces.push(piece);
+      const drift = (Math.random() - 0.5) * 240;
+      piece.animate(
+        [
+          { transform: "translate(0, 0) rotate(0deg)", opacity: 1 },
+          {
+            transform: `translate(${drift}px, ${root.clientHeight + 40}px) rotate(${720 * Math.random()}deg)`,
+            opacity: 0.9,
+          },
+        ],
+        {
+          duration: 2200 + Math.random() * 1800,
+          delay: Math.random() * 500,
+          easing: "cubic-bezier(.2,.6,.4,1)",
+          fill: "forwards",
+        },
+      );
+    }
+    return () => pieces.forEach((p) => p.remove());
+  }, []);
+  return <div ref={box} className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden />;
 }
 
-// Results
+function Reveal({ level, onDone }: { level: CefrLevel; onDone: () => void }) {
+  const target = CEFR_LEVELS.indexOf(level);
+  const [step, setStep] = useState(0);
+  const landed = step >= target;
 
-function LevelBadge({ level, large }: { level: CefrLevel; large?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-2xl bg-accent font-bold tracking-[-0.02em] text-accent-ink",
-        large ? "size-20 text-[32px]" : "size-12 text-lg",
-      )}
-    >
-      {level}
-    </span>
-  );
-}
+  useEffect(() => {
+    if (landed) return;
+    const timer = window.setTimeout(() => setStep((s) => s + 1), 420);
+    return () => window.clearTimeout(timer);
+  }, [step, landed]);
 
-function LevelScale({ level }: { level: CefrLevel }) {
-  const index = rank(level);
-  return (
-    <div className="flex gap-1" aria-hidden>
-      {CEFR_LEVELS.map((l, i) => (
-        <span key={l} className="flex-1">
-          <span className={cn("block h-1.5 rounded-full", i <= index ? "bg-accent" : "bg-hover")} />
-          <span
-            className={cn("mt-1.5 block text-center text-[11px]", i === index ? "font-bold text-ink" : "text-subtle")}
-          >
-            {l}
-          </span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function Change({ from, to }: { from: CefrLevel; to: CefrLevel }) {
-  const diff = rank(to) - rank(from);
-  if (diff === 0) return <span className="text-xs text-subtle">same as before</span>;
-  const up = diff > 0;
-  return (
-    <span className={cn("inline-flex items-center gap-0.5 text-xs font-semibold", up ? "text-success" : "text-danger")}>
-      {up ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
-      {up ? "up" : "down"} from {from}
-    </span>
-  );
-}
-
-function ResultView({
-  test,
-  history,
-  teachers,
-  onOpenTeacher,
-  onPractise,
-  onRetake,
-  retaking,
-}: {
-  test: LevelTest;
-  history: LevelHistoryItem[];
-  teachers: Teacher[];
-  onOpenTeacher: (id: string) => void;
-  onPractise: (teacherId: string, text: string) => void;
-  onRetake: () => void;
-  retaking: boolean;
-}) {
-  const result = test.result!;
-  const byId = Object.fromEntries(teachers.map((t) => [t.id, t]));
-  const teacher = result.recommended_teacher_id ? byId[result.recommended_teacher_id] : undefined;
-  const finishedAt = test.completed_at ?? test.created_at;
-  const previous = [...history]
-    .filter((h) => h.id !== test.id && new Date(h.completed_at) < new Date(finishedAt))
-    .pop();
-  const answers = test.messages.filter((m) => m.role === "learner");
-  const questions = test.messages.filter((m) => m.role === "examiner");
-  const spoken = answers.filter((m) => m.mode === "voice").length;
+  const shownLevel = CEFR_LEVELS[Math.min(step, target)];
 
   return (
-    <Shell wide>
-      <section className="animate-in rounded-3xl border border-line bg-surface p-6 md:p-8">
-        <p className="text-xs font-semibold tracking-wider text-subtle uppercase">Your English level</p>
-        <div className="mt-4 flex flex-wrap items-center gap-5">
-          <LevelBadge level={result.level} large />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink">
-              {LEVEL_NAMES[result.level]}
-            </h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
-              CEFR {result.level} · tested {when(finishedAt)}
-              {previous && <Change from={previous.level} to={result.level} />}
-            </p>
-          </div>
-        </div>
-        <div className="mt-6">
-          <LevelScale level={result.level} />
-        </div>
-        <p className="mt-6 text-[15px] leading-relaxed text-ink">{result.summary}</p>
-        <div className="mt-5 flex flex-wrap gap-2 text-xs">
-          {result.quiz_total != null && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-muted">
-              <ListChecks className="size-3.5" />
-              Quick check: {result.quiz_correct} of {result.quiz_total} correct
-              {result.quiz_level && ` · about ${result.quiz_level}`}
-            </span>
+    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-4">
+      {landed && <Confetti />}
+      <div className="relative w-full max-w-md text-center">
+        <p className="text-sm font-semibold tracking-wider text-subtle uppercase">
+          {landed ? "Your English level" : "Climbing…"}
+        </p>
+        <div
+          key={shownLevel}
+          className={cn(
+            "animate-in mx-auto mt-5 flex size-32 items-center justify-center rounded-[32px] text-[52px] font-bold tracking-[-0.03em] transition-colors",
+            landed ? "bg-accent text-accent-ink shadow-lg" : "bg-hover text-ink",
           )}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-muted">
-            <MessagesSquare className="size-3.5" />
-            Conversation: {answers.length} answers{spoken > 0 && `, ${spoken} spoken`}
-          </span>
+        >
+          {shownLevel}
         </div>
-      </section>
-
-      <div className="mt-5 grid gap-5 md:grid-cols-2">
-        <Panel title="Skills">
-          <ul className="space-y-3.5">
-            {SKILLS.map(([key, label]) => {
-              const level = result.scores[key];
-              return (
-                <li key={key}>
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="text-muted">{label}</span>
-                    <span className="flex items-center gap-2">
-                      {previous && previous.scores[key] !== level && <Change from={previous.scores[key]} to={level} />}
-                      <span className="font-semibold text-ink">{level}</span>
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-hover">
-                    <div
-                      className="h-full rounded-full bg-accent"
-                      style={{ width: `${((rank(level) + 1) / 6) * 100}%` }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Panel>
-
-        <Panel>
-          <h2 className="text-[15px] font-semibold text-ink">What you do well</h2>
-          <ul className="mt-3 space-y-2">
-            {result.strengths.map((s) => (
-              <li key={s} className="flex gap-2 text-sm leading-relaxed text-ink">
-                <Check className="mt-0.5 size-4 shrink-0 text-success" />
-                {s}
-              </li>
-            ))}
-          </ul>
-          <h2 className="mt-5 text-[15px] font-semibold text-ink">What to work on next</h2>
-          <ul className="mt-3 space-y-2">
-            {result.improvements.map((s) => (
-              <li key={s} className="flex gap-2 text-sm leading-relaxed text-ink">
-                <Target className="mt-0.5 size-4 shrink-0 text-accent" />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      </div>
-
-      {result.plan.length > 0 && (
-        <section className="mt-5">
-          <h2 className="text-[17px] font-bold tracking-[-0.01em] text-ink">Your study plan</h2>
-          <p className="mt-1 text-sm text-muted">
-            Three next steps. Each one opens the right teacher with a message ready.
-          </p>
-          <ol className="mt-4 grid gap-3 md:grid-cols-3">
-            {result.plan.map((step, i) => {
-              const t = step.teacher_id ? byId[step.teacher_id] : undefined;
-              return (
-                <li key={step.title} className="flex flex-col rounded-2xl border border-line bg-surface p-5">
-                  <span className="font-mono text-xs font-bold text-accent">0{i + 1}</span>
-                  <p className="mt-2 text-[15px] font-semibold text-ink">{step.title}</p>
-                  <p className="mt-1 flex-1 text-sm leading-relaxed text-muted">{step.detail}</p>
-                  {t && (
-                    <button
-                      type="button"
-                      onClick={() => onPractise(t.id, step.practice_prompt || `Can we practise this: ${step.title}?`)}
-                      className="mt-4 inline-flex h-9 max-w-full items-center gap-2 self-start rounded-lg border border-line pr-3 pl-1.5 text-sm font-semibold whitespace-nowrap text-ink transition-colors hover:border-accent/40"
-                    >
-                      <TeacherAvatar name={t.name} color={t.color} size={24} />
-                      Practise with {t.name}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      )}
-
-      {result.answer_feedback.length > 0 && (
-        <Collapsible title="Review your answers" subtitle="See how each answer could sound one step higher.">
-          <ol className="divide-y divide-line">
-            {answers.map((answer, i) => {
-              const feedback = result.answer_feedback[i];
-              return (
-                <li key={i} className="px-5 py-4">
-                  <p className="text-xs text-subtle">
-                    Q{i + 1}. {questions[i]?.content}
-                  </p>
-                  <p className="mt-2 flex items-start gap-2 text-sm text-ink">
-                    <span className="mt-0.5 w-16 shrink-0 text-xs font-semibold text-muted">You</span>
-                    <span className="min-w-0">
-                      {answer.content}
-                      {answer.mode === "voice" && <Mic className="ml-1.5 inline size-3 text-subtle" />}
-                    </span>
-                  </p>
-                  {feedback?.improved && feedback.improved !== answer.content && (
-                    <p className="mt-1.5 flex items-start gap-2 text-sm text-ink">
-                      <span className="mt-0.5 w-16 shrink-0 text-xs font-semibold text-success">Better</span>
-                      <span className="min-w-0">{feedback.improved}</span>
-                    </p>
-                  )}
-                  {feedback?.tip && (
-                    <p className="mt-2 ml-[72px] rounded-lg bg-hover px-3 py-2 text-xs leading-relaxed text-muted">
-                      {feedback.tip}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </Collapsible>
-      )}
-
-      {test.quiz_review.length > 0 && (
-        <Collapsible
-          title="Quick check answers"
-          subtitle={`${test.quiz_review.filter((q) => q.correct).length} of ${test.quiz_review.length} correct`}
-        >
-          <ol className="divide-y divide-line">
-            {test.quiz_review.map((q, i) => (
-              <li key={i} className="flex gap-3 px-5 py-3.5">
-                <span
-                  className={cn(
-                    "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full",
-                    q.correct ? "bg-success/15 text-success" : "bg-danger/10 text-danger",
-                  )}
-                >
-                  {q.correct ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-                </span>
-                <div className="min-w-0 text-sm">
-                  <p className="text-ink">{q.question.replace("___", `“${q.options[q.answer_index]}”`)}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {q.level} {q.skill}
-                    {!q.correct && (
-                      <>
-                        {" "}
-                        · you chose <span className="text-danger line-through">{q.options[q.chosen]}</span>
-                      </>
-                    )}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Collapsible>
-      )}
-
-      {history.length > 1 && <Progress history={history} />}
-
-      {teacher && (
-        <section
-          className="mt-5 flex flex-wrap items-center gap-4 rounded-2xl border bg-surface p-5"
-          style={{ borderColor: `color-mix(in srgb, ${teacher.color} 30%, var(--line))` }}
-        >
-          <TeacherAvatar name={teacher.name} color={teacher.color} size={48} />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold tracking-wider text-subtle uppercase">Best teacher for you</p>
-            <p className="mt-0.5 text-[15px] font-semibold text-ink">
-              {teacher.name} <span className="font-normal text-muted">· {teacher.specialty}</span>
-            </p>
-            {result.recommendation_reason && (
-              <p className="mt-0.5 text-sm text-muted">{result.recommendation_reason}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenTeacher(teacher.id)}
-            className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: teacher.color }}
-          >
-            Talk to {teacher.name}
-            <ArrowRight className="size-4" />
-          </button>
-        </section>
-      )}
-
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">All your teachers now adapt their English to {result.level}.</p>
-        <SecondaryButton onClick={onRetake} disabled={retaking}>
-          {retaking ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
-          Retake the test
-        </SecondaryButton>
-      </div>
-    </Shell>
-  );
-}
-
-function Collapsible({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <section className="mt-5 overflow-hidden rounded-2xl border border-line bg-surface">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-hover/60"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold text-ink">{title}</span>
-          <span className="block text-xs text-muted">{subtitle}</span>
-        </span>
-        <ChevronDown className={cn("size-4 text-muted transition-transform", open && "rotate-180")} />
-      </button>
-      {open && <div className="border-t border-line">{children}</div>}
-    </section>
-  );
-}
-
-function Progress({ history }: { history: LevelHistoryItem[] }) {
-  const points = history.slice(-8);
-  const first = points[0];
-  const last = points[points.length - 1];
-  return (
-    <Panel className="mt-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-ink">Your progress</h2>
-        <span className="text-xs text-muted">
-          {first.level} on {shortDate(first.completed_at)} → {last.level} now
-        </span>
-      </div>
-      <div className="mt-4 flex h-36 items-end gap-2">
-        {points.map((p) => (
-          <div key={p.id} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
-            <span className="text-xs font-semibold text-ink">{p.level}</span>
+        <div className="mx-auto mt-6 flex max-w-xs gap-1">
+          {CEFR_LEVELS.map((l, i) => (
             <span
-              className={cn("w-full max-w-12 rounded-t-lg", p.id === last.id ? "bg-accent" : "bg-accent/35")}
-              style={{ height: `${((rank(p.level) + 1) / 6) * 100}%` }}
+              key={l}
+              className={cn(
+                "h-2 flex-1 rounded-full transition-colors duration-300",
+                i <= step ? "bg-accent" : "bg-hover",
+              )}
             />
-            <span className="truncate text-[11px] text-subtle">{shortDate(p.completed_at)}</span>
-          </div>
-        ))}
+          ))}
+        </div>
+        <div className={cn("transition-opacity duration-500", landed ? "opacity-100" : "opacity-0")}>
+          <h1 className="mt-6 text-[30px] leading-tight font-bold tracking-[-0.025em] text-ink">
+            You&apos;re {LEVEL_NAMES[level]}!
+          </h1>
+          <p className="mt-2 text-[15px] text-muted">Your teachers will now pitch their English at {level}.</p>
+          <PrimaryButton onClick={onDone} className="mt-7" disabled={!landed}>
+            See my full results
+            <ArrowRight className="size-4" />
+          </PrimaryButton>
+        </div>
       </div>
-    </Panel>
+    </div>
   );
 }

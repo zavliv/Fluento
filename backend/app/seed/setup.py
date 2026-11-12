@@ -1,14 +1,18 @@
 import logging
+import random
 
 from app.config import settings
 from app.db import db, ensure_indexes, now
 from app.security import hash_password
 from app.seed.legacy import RULE_UPDATES
+from app.seed.quiz import QUIZ_QUESTIONS
 from app.seed.rules import RULE_SECTIONS
 from app.seed.teachers import TEACHERS
 from app.services.app_settings import DEFAULTS, SETTINGS_ID
 
 logger = logging.getLogger("fluento")
+
+QUIZ_SEED_VERSION = 1
 
 
 async def setup_database() -> None:
@@ -34,6 +38,7 @@ async def setup_database() -> None:
 
     await db.settings.update_one({"_id": SETTINGS_ID}, {"$setOnInsert": DEFAULTS}, upsert=True)
 
+    await seed_quiz()
     await _move_admins_out_of_users()
 
     if settings.admin_email and settings.admin_password and await db.admins.count_documents({}) == 0:
@@ -74,3 +79,29 @@ async def _update_legacy_rules() -> None:
         rules = [RULE_UPDATES.get(rule, rule) for rule in section["rules"]]
         await db.rules.update_one({"_id": section["_id"]}, {"$set": {"rules": rules}})
         logger.info("Updated rule placeholders in section %s", section["_id"])
+
+
+async def seed_quiz() -> None:
+    if await db.settings.find_one({"_id": "quiz_seed", "version": QUIZ_SEED_VERSION}):
+        return
+    existing = set(await db.quiz_questions.distinct("question"))
+    docs = []
+    for level, skill, question, options in QUIZ_QUESTIONS:
+        if question in existing:
+            continue
+        shuffled = random.sample(options, len(options))
+        docs.append(
+            {
+                "level": level,
+                "skill": skill,
+                "question": question,
+                "options": shuffled,
+                "answer_index": shuffled.index(options[0]),
+                "source": "starter",
+                "created_at": now(),
+            }
+        )
+    if docs:
+        await db.quiz_questions.insert_many(docs)
+    await db.settings.update_one({"_id": "quiz_seed"}, {"$set": {"version": QUIZ_SEED_VERSION}}, upsert=True)
+    logger.info("Seeded %d starter quiz questions", len(docs))

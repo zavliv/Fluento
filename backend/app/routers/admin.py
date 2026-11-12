@@ -27,6 +27,7 @@ from app.schemas.level_test import (
     LevelTestOut,
     QuizBank,
     QuizBankQuestion,
+    QuizQuestionCreate,
     level_test_out,
 )
 from app.schemas.rules import RuleSection, RuleSectionCreate, RuleSectionFields, rule_section
@@ -34,11 +35,12 @@ from app.schemas.settings import AppSettings
 from app.schemas.teachers import TeacherAdmin, TeacherCreate, TeacherFields, teacher_admin
 from app.security import current_admin
 from app.services.pending import answer_pending
+from app.seed.setup import seed_quiz
 from app.services.tasks import run_in_background
 from app.services.level_test import DEFAULT_CONFIG as DEFAULT_LEVEL_TEST_CONFIG
 from app.services.level_test import get_config as get_level_test_config
 from app.services.level_test import pool_counts as quiz_pool_counts
-from app.services.level_test import refill_pool as refill_quiz_pool
+from app.services.level_test import generate_more as generate_quiz_questions
 from app.services.level_test import refilling as quiz_refilling
 from app.services.level_test import save_config as save_level_test_config
 from app.services.app_settings import SETTINGS_ID, clear_settings_cache, get_app_settings
@@ -374,7 +376,7 @@ async def list_quiz_questions() -> QuizBank:
     docs = await db.quiz_questions.find({}).sort([("level", 1), ("created_at", -1)]).to_list()
     return QuizBank(
         counts=await quiz_pool_counts(),
-        refilling=quiz_refilling(),
+        generating=quiz_refilling(),
         questions=[
             QuizBankQuestion(
                 id=str(d["_id"]),
@@ -393,14 +395,29 @@ async def list_quiz_questions() -> QuizBank:
 async def delete_quiz_question(question_id: str) -> dict:
     if (await db.quiz_questions.delete_one({"_id": _object_id(question_id)})).deleted_count == 0:
         raise HTTPException(status_code=404, detail="Question not found.")
-    run_in_background(refill_quiz_pool())
     return {"ok": True}
 
 
-@router.post("/level-test/questions/refresh")
-async def refresh_quiz_questions() -> dict:
+@router.post("/level-test/questions", status_code=201)
+async def add_quiz_question(body: QuizQuestionCreate) -> QuizBankQuestion:
+    if await db.quiz_questions.find_one({"question": body.question}):
+        raise HTTPException(status_code=409, detail="That question is already in the bank.")
+    doc = {**body.model_dump(), "source": "admin", "created_at": now()}
+    doc["_id"] = (await db.quiz_questions.insert_one(doc)).inserted_id
+    return QuizBankQuestion(id=str(doc["_id"]), **body.model_dump())
+
+
+@router.post("/level-test/questions/generate")
+async def generate_more_quiz_questions() -> dict:
+    run_in_background(generate_quiz_questions(1))
+    return {"ok": True}
+
+
+@router.post("/level-test/questions/reset")
+async def reset_quiz_questions() -> dict:
     await db.quiz_questions.delete_many({})
-    run_in_background(refill_quiz_pool())
+    await db.settings.delete_one({"_id": "quiz_seed"})
+    await seed_quiz()
     return {"ok": True}
 
 

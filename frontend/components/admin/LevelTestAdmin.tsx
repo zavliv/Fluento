@@ -1,13 +1,22 @@
 "use client";
 
-import { Eye, LoaderCircle, RefreshCw, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { Eye, LoaderCircle, Plus, RefreshCw, RotateCcw, Save, Sparkles, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLoad } from "@/hooks/useLoad";
-import { api, CEFR_LEVELS, LEVEL_NAMES, type CefrLevel, type LevelTest, type LevelTestConfig } from "@/lib/api";
+import {
+  api,
+  CEFR_LEVELS,
+  LEVEL_NAMES,
+  type CefrLevel,
+  type LevelTest,
+  type LevelTestConfig,
+  type QuizBank,
+} from "@/lib/api";
 import { IconButton } from "../IconButton";
 import { Dialog } from "../ui/Dialog";
 import { Switch } from "../ui/Switch";
 import { useToast } from "../ui/Toast";
+import { ListEditor } from "./ListEditor";
 import { Button, Card, EmptyState, ErrorState, Field, Input, LoadingState, PageHeader, Textarea, timeAgo } from "./ui";
 
 export function LevelTestAdmin() {
@@ -116,18 +125,22 @@ function ConfigForm({ initial }: { initial: LevelTestConfig }) {
           <Switch checked={draft.enabled} onChange={(v) => set("enabled", v)} label="Level test available" />
         </div>
 
+        <Field label="Chat topics" hint="Learners pick one before the test; the chat is built around it.">
+          <ListEditor items={draft.topics} onChange={(v) => set("topics", v)} multiline={false} addLabel="Add topic" />
+        </Field>
+
         <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
           <div>
-            <p className="text-sm font-semibold text-ink">Quick check quiz</p>
+            <p className="text-sm font-semibold text-ink">Warm-up rounds</p>
             <p className="text-xs text-muted">
-              Part 1: adaptive multiple-choice grammar and vocabulary questions from the question bank.
+              Adaptive game rounds from the question bank: fill the gap, listen and choose, and spot the mistake.
             </p>
           </div>
           <Switch checked={draft.quiz_enabled} onChange={(v) => set("quiz_enabled", v)} label="Quick check quiz" />
         </div>
 
         {draft.quiz_enabled && (
-          <Field label="Quiz questions" hint="Between 4 and 12.">
+          <Field label="Warm-up rounds" hint="Between 4 and 12.">
             <div className="w-28">
               <Input
                 type="number"
@@ -154,7 +167,7 @@ function ConfigForm({ initial }: { initial: LevelTestConfig }) {
 
         <Field
           label="Examiner prompt"
-          hint="Writes each conversation question. Placeholders: {app}, {name} (learner's first name), {count}, {number} (current question), {start_level} (the quiz estimate)."
+          hint="Writes each conversation question. Placeholders: {app}, {name} (learner's first name), {count}, {number} (current question), {start_level} (the warm-up estimate), {topic}."
         >
           <Textarea
             rows={12}
@@ -198,7 +211,16 @@ function ConfigForm({ initial }: { initial: LevelTestConfig }) {
             )}
             <Button
               variant="primary"
-              onClick={() => void run(() => api.admin.saveLevelTestConfig(draft), "Level test settings saved")}
+              onClick={() =>
+                void run(
+                  () =>
+                    api.admin.saveLevelTestConfig({
+                      ...draft,
+                      topics: draft.topics.map((t) => t.trim()).filter(Boolean),
+                    }),
+                  "Level test settings saved",
+                )
+              }
               disabled={!dirty || saving}
             >
               {saving ? <LoaderCircle className="animate-spin" /> : <Save />}
@@ -301,10 +323,10 @@ function QuestionBank() {
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    if (!data?.refilling) return;
+    if (!data?.generating) return;
     const timer = window.setInterval(reload, 8000);
     return () => window.clearInterval(timer);
-  }, [data?.refilling, reload]);
+  }, [data?.generating, reload]);
 
   const remove = async (id: string) => {
     setData((d) => (d ? { ...d, questions: d.questions.filter((q) => q.id !== id) } : d));
@@ -317,14 +339,24 @@ function QuestionBank() {
     }
   };
 
-  const refresh = async () => {
+  const reset = async () => {
     setConfirming(false);
     try {
-      await api.admin.refreshQuizBank();
-      toast({ message: "Generating a fresh question bank. This takes a few minutes." });
+      await api.admin.resetQuizBank();
+      toast({ message: "Question bank reset to the 60 starter questions." });
       reload();
     } catch (err) {
-      toast({ message: err instanceof Error ? err.message : "Couldn't refresh the bank" });
+      toast({ message: err instanceof Error ? err.message : "Couldn't reset the bank" });
+    }
+  };
+
+  const generate = async () => {
+    try {
+      await api.admin.generateQuizQuestions();
+      toast({ message: "Writing and checking new questions. This takes about a minute." });
+      setData((d) => (d ? { ...d, generating: true } : d));
+    } catch (err) {
+      toast({ message: err instanceof Error ? err.message : "Couldn't start generating" });
     }
   };
 
@@ -336,7 +368,7 @@ function QuestionBank() {
   return (
     <Card
       title="Question bank"
-      description="Quiz questions are written by AI, then solved again blind; only questions with exactly one correct answer are kept. The bank refills itself."
+      description="Warm-up rounds use these questions. Add your own, or let AI write more: each AI question is solved blind by two reviewers and kept only if both find exactly one correct answer."
     >
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
         <div className="flex flex-wrap gap-1">
@@ -354,10 +386,10 @@ function QuestionBank() {
           ))}
         </div>
         <span className="ml-auto flex items-center gap-2">
-          {data.refilling && (
+          {data.generating && (
             <span className="flex items-center gap-1.5 text-xs text-muted">
               <LoaderCircle className="size-3.5 animate-spin" />
-              Adding questions…
+              Writing questions…
             </span>
           )}
           {confirming ? (
@@ -368,19 +400,33 @@ function QuestionBank() {
               <Button
                 variant="danger"
                 className="h-8 border border-danger/40 px-3 text-xs"
-                onClick={() => void refresh()}
+                onClick={() => void reset()}
               >
-                Replace all
+                Reset to starter set
               </Button>
             </>
           ) : (
-            <Button className="h-8 px-3 text-xs" onClick={() => setConfirming(true)}>
-              <RefreshCw />
-              Regenerate
-            </Button>
+            <>
+              <Button className="h-8 px-3 text-xs" onClick={() => void generate()} disabled={data.generating}>
+                <Sparkles />
+                Write 12 with AI
+              </Button>
+              <Button className="h-8 px-3 text-xs" onClick={() => setConfirming(true)}>
+                <RefreshCw />
+                Reset
+              </Button>
+            </>
           )}
         </span>
       </div>
+      <AddQuestion
+        level={level}
+        onAdded={(q) =>
+          setData((d) =>
+            d ? { ...d, questions: [q, ...d.questions], counts: { ...d.counts, [q.level]: d.counts[q.level] + 1 } } : d,
+          )
+        }
+      />
       {shown.length === 0 ? (
         <p className="px-5 py-6 text-sm text-muted">No {level} questions yet.</p>
       ) : (
@@ -406,5 +452,99 @@ function QuestionBank() {
         </ul>
       )}
     </Card>
+  );
+}
+
+function AddQuestion({ level, onAdded }: { level: CefrLevel; onAdded: (q: QuizBank["questions"][number]) => void }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [skill, setSkill] = useState<"grammar" | "vocabulary">("grammar");
+  const [question, setQuestion] = useState("");
+  const [options, setOptions] = useState(["", "", "", ""]);
+  const [answer, setAnswer] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const created = await api.admin.addQuizQuestion({ level, skill, question, options, answer_index: answer });
+      onAdded({ ...created, level, answer_index: answer });
+      toast({ message: `Added a ${level} question` });
+      setQuestion("");
+      setOptions(["", "", "", ""]);
+      setAnswer(0);
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't add the question.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-2 border-b border-line px-5 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-ink"
+      >
+        <Plus className="size-4" />
+        Add a {level} question
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-3 border-b border-line bg-hover/40 px-5 py-4">
+      <div className="flex gap-2">
+        {(["grammar", "vocabulary"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setSkill(s)}
+            className={`h-8 rounded-lg px-3 text-xs font-semibold capitalize ${s === skill ? "bg-ink text-bg" : "bg-surface text-muted"}`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <Input
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        placeholder="Sentence with one gap, like: She ___ to work every day."
+      />
+      <div className="grid gap-2 sm:grid-cols-2">
+        {options.map((o, i) => (
+          <label key={i} className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="answer"
+              checked={answer === i}
+              onChange={() => setAnswer(i)}
+              aria-label={`Option ${i + 1} is correct`}
+              className="accent-[var(--accent)]"
+            />
+            <Input
+              value={o}
+              onChange={(e) => setOptions((list) => list.map((x, j) => (j === i ? e.target.value : x)))}
+              placeholder={i === answer ? "Correct answer" : `Wrong option`}
+            />
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-subtle">Pick the radio button next to the correct answer.</p>
+      {error && <p className="text-sm text-danger">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button className="h-9" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+        <Button variant="primary" className="h-9" onClick={() => void save()} disabled={saving}>
+          {saving && <LoaderCircle className="animate-spin" />}
+          Add question
+        </Button>
+      </div>
+    </div>
   );
 }

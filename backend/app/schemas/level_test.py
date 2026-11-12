@@ -32,6 +32,7 @@ def _clean_list(items: object, limit: int = 4) -> list[str]:
 
 class LevelTestConfig(BaseModel):
     enabled: bool = True
+    topics: list[str] = []
     quiz_enabled: bool = True
     quiz_count: int = Field(default=8, ge=4, le=12)
     question_count: int = Field(default=5, ge=3, le=12)
@@ -41,6 +42,7 @@ class LevelTestConfig(BaseModel):
 
 class LevelTestPublicConfig(BaseModel):
     enabled: bool
+    topics: list[str]
     quiz_enabled: bool
     quiz_count: int
     question_count: int
@@ -121,22 +123,43 @@ class TestMessage(BaseModel):
     mode: AnswerMode | None = None
 
 
+QuizFormat = Literal["fill", "listen", "judge"]
+
+
 class QuizQuestion(BaseModel):
     id: str
     skill: Skill
+    format: QuizFormat = "fill"
     question: str
     options: list[str]
+    shown: str | None = None
+    audio: str | None = None
+    answer: int
+    answer_text: str
+    sentence: str
+
+
+class QuizFeedback(BaseModel):
+    correct: bool
+    answer: str
+    sentence: str
 
 
 class QuizState(BaseModel):
     total: int
     answered: int
+    correct: int
+    streak: int
+    climb: Level
     current: QuizQuestion | None
+    last: QuizFeedback | None = None
 
 
 class QuizReviewItem(BaseModel):
     level: Level
     skill: Skill
+    format: QuizFormat = "fill"
+    shown: int | None = None
     question: str
     options: list[str]
     answer_index: int
@@ -171,6 +194,34 @@ class LevelTestState(BaseModel):
     latest: LevelTestOut | None
     previous: LevelHistoryItem | None
     history: list[LevelHistoryItem]
+
+
+class StartRequest(BaseModel):
+    topic: str | None = Field(default=None, max_length=60)
+
+
+class QuizQuestionCreate(BaseModel):
+    level: Level
+    skill: Skill
+    question: str = Field(min_length=5, max_length=300)
+    options: list[str] = Field(min_length=4, max_length=4)
+    answer_index: int = Field(ge=0, le=3)
+
+    @field_validator("question")
+    @classmethod
+    def _gap(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if value.count("___") != 1:
+            raise ValueError('The question needs exactly one gap written as "___".')
+        return value
+
+    @field_validator("options")
+    @classmethod
+    def _options(cls, value: list[str]) -> list[str]:
+        cleaned = [" ".join(o.split()) for o in value]
+        if any(not o for o in cleaned) or len({o.lower() for o in cleaned}) != 4:
+            raise ValueError("Give four different, non-empty options.")
+        return cleaned
 
 
 class AnswerRequest(BaseModel):
@@ -214,8 +265,11 @@ class QuizBankQuestion(BaseModel):
 
 class QuizBank(BaseModel):
     counts: dict[str, int]
-    refilling: bool
+    generating: bool
     questions: list[QuizBankQuestion]
+
+
+JUDGE_OPTIONS = ["Sounds right", "Something's wrong"]
 
 
 def quiz_state(doc: dict) -> QuizState | None:
@@ -226,10 +280,35 @@ def quiz_state(doc: dict) -> QuizState | None:
     if doc.get("phase") == "quiz" and quiz.get("current"):
         item = next((q for q in quiz["bank"] if q["id"] == quiz["current"]), None)
         if item:
+            fmt = quiz.get("format", "fill")
+            sentence = item["question"].replace("___", item["options"][item["answer_index"]])
+            shown = quiz.get("shown")
             current = QuizQuestion(
-                id=item["id"], skill=item["skill"], question=item["question"], options=item["options"]
+                id=item["id"],
+                skill=item["skill"],
+                format=fmt,
+                question=item["question"],
+                options=JUDGE_OPTIONS if fmt == "judge" else item["options"],
+                shown=item["options"][quiz["shown"]] if fmt == "judge" and quiz.get("shown") is not None else None,
+                audio=sentence if fmt == "listen" else None,
+                answer=(0 if shown == item["answer_index"] else 1) if fmt == "judge" else item["answer_index"],
+                answer_text=item["options"][item["answer_index"]],
+                sentence=sentence,
             )
-    return QuizState(total=quiz["total"], answered=len(quiz["asked"]), current=current)
+    streak = 0
+    for a in reversed(quiz["asked"]):
+        if not a["correct"]:
+            break
+        streak += 1
+    return QuizState(
+        total=quiz["total"],
+        answered=len(quiz["asked"]),
+        correct=sum(a["correct"] for a in quiz["asked"]),
+        streak=streak,
+        climb=LEVELS[quiz.get("step", 2)],
+        current=current,
+        last=QuizFeedback(**quiz["last"]) if quiz.get("last") else None,
+    )
 
 
 def quiz_review(doc: dict) -> list[QuizReviewItem]:
@@ -242,6 +321,8 @@ def quiz_review(doc: dict) -> list[QuizReviewItem]:
             level=bank[a["id"]]["level"],
             skill=bank[a["id"]]["skill"],
             question=bank[a["id"]]["question"],
+            format=a.get("format", "fill"),
+            shown=a.get("shown"),
             options=bank[a["id"]]["options"],
             answer_index=bank[a["id"]]["answer_index"],
             chosen=a["chosen"],

@@ -44,11 +44,28 @@ export type LevelResult = {
   quiz_level: CefrLevel | null;
 };
 
-export type QuizQuestion = { id: string; skill: "grammar" | "vocabulary"; question: string; options: string[] };
+export type QuizFormat = "fill" | "listen" | "judge";
+
+export type QuizQuestion = {
+  id: string;
+  skill: "grammar" | "vocabulary";
+  format: QuizFormat;
+  question: string;
+  options: string[];
+  shown: string | null;
+  audio: string | null;
+  answer: number;
+  answer_text: string;
+  sentence: string;
+};
+
+export type QuizFeedback = { correct: boolean; answer: string; sentence: string };
 
 export type QuizReviewItem = {
   level: CefrLevel;
   skill: "grammar" | "vocabulary";
+  format: QuizFormat;
+  shown: number | null;
   question: string;
   options: string[];
   answer_index: number;
@@ -60,7 +77,15 @@ export type LevelTest = {
   id: string;
   status: "in_progress" | "completed";
   phase: "quiz" | "chat" | "done";
-  quiz: { total: number; answered: number; current: QuizQuestion | null } | null;
+  quiz: {
+    total: number;
+    answered: number;
+    correct: number;
+    streak: number;
+    climb: CefrLevel;
+    current: QuizQuestion | null;
+    last: QuizFeedback | null;
+  } | null;
   question_count: number;
   answered: number;
   messages: { role: "examiner" | "learner"; content: string; mode?: "typed" | "voice" | null }[];
@@ -73,7 +98,7 @@ export type LevelTest = {
 export type LevelHistoryItem = { id: string; level: CefrLevel; scores: SkillScores; completed_at: string };
 
 export type LevelTestState = {
-  config: { enabled: boolean; quiz_enabled: boolean; quiz_count: number; question_count: number };
+  config: { enabled: boolean; topics: string[]; quiz_enabled: boolean; quiz_count: number; question_count: number };
   current: LevelTest | null;
   latest: LevelTest | null;
   previous: LevelHistoryItem | null;
@@ -82,6 +107,7 @@ export type LevelTestState = {
 
 export type LevelTestConfig = {
   enabled: boolean;
+  topics: string[];
   quiz_enabled: boolean;
   quiz_count: number;
   question_count: number;
@@ -91,7 +117,7 @@ export type LevelTestConfig = {
 
 export type QuizBank = {
   counts: Record<CefrLevel, number>;
-  refilling: boolean;
+  generating: boolean;
   questions: (QuizQuestion & { level: CefrLevel; answer_index: number })[];
 };
 
@@ -302,7 +328,7 @@ export const api = {
   },
   mistakeSummary: () => request<MistakeSummary>("/me/mistakes/summary"),
   levelTest: () => request<LevelTestState>("/me/level-test"),
-  startLevelTest: () => request<LevelTest>("/me/level-test", { method: "POST" }),
+  startLevelTest: (topic?: string) => request<LevelTest>("/me/level-test", { method: "POST", json: { topic } }),
   answerLevelTest: (id: string, text: string, mode: "typed" | "voice") =>
     request<LevelTest>(`/me/level-test/${id}/answer`, { method: "POST", json: { text, mode } }),
   answerLevelQuiz: (id: string, choice: number) =>
@@ -335,7 +361,19 @@ export const api = {
     quizBank: () => request<QuizBank>("/admin/level-test/questions"),
     deleteQuizQuestion: (id: string) =>
       request<{ ok: true }>(`/admin/level-test/questions/${id}`, { method: "DELETE" }),
-    refreshQuizBank: () => request<{ ok: true }>("/admin/level-test/questions/refresh", { method: "POST" }),
+    resetQuizBank: () => request<{ ok: true }>("/admin/level-test/questions/reset", { method: "POST" }),
+    generateQuizQuestions: () => request<{ ok: true }>("/admin/level-test/questions/generate", { method: "POST" }),
+    addQuizQuestion: (body: {
+      level: CefrLevel;
+      skill: "grammar" | "vocabulary";
+      question: string;
+      options: string[];
+      answer_index: number;
+    }) =>
+      request<QuizQuestion & { level: CefrLevel; answer_index: number }>("/admin/level-test/questions", {
+        method: "POST",
+        json: body,
+      }),
     levelTestDetail: (id: string) => request<LevelTest>(`/admin/level-tests/${id}`),
     teachers: () => request<AdminTeacher[]>("/admin/teachers"),
     teacher: (id: string) => request<AdminTeacher>(`/admin/teachers/${id}`),
