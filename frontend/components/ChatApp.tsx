@@ -31,14 +31,13 @@ import { MessageList } from "./MessageList";
 import { LevelTestPage } from "./level/LevelTestPage";
 import { ChallengeFlow } from "./practice/ChallengeFlow";
 import { ProgressPage } from "./practice/ProgressPage";
-import { TodayCard } from "./practice/TodayCard";
 import { MistakesPage } from "./mistakes/MistakesPage";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
 import { TeacherAvatar } from "./TeacherAvatar";
 import { LandingPage } from "./landing/LandingPage";
 import { useSiteSettings } from "./SiteSettings";
-import { TeacherDirectory } from "./TeacherDirectory";
+import { Home } from "./home/Home";
 import { useAuth } from "./auth/AuthProvider";
 import { useToast } from "./ui/Toast";
 
@@ -392,21 +391,18 @@ export default function ChatApp() {
             </div>
           </>
         ) : (
-          <TeacherDirectory
-            teachers={teachers}
-            myTeacherIds={myTeacherIds}
-            onSelect={openTeacher}
+          <Home
             userName={user.name}
-            today={
-              progress && (
-                <TodayCard
-                  progress={progress}
-                  onStart={openChallenge}
-                  onLevelCheck={openLevelTest}
-                  onOpenProgress={openPractice}
-                />
-              )
-            }
+            teachers={teachers}
+            myTeachers={chat.myTeachers}
+            myTeacherIds={myTeacherIds}
+            lastMessage={chat.lastMessage}
+            progress={progress}
+            tested={user.level ?? null}
+            onSelect={openTeacher}
+            onStartChallenge={openChallenge}
+            onLevelCheck={openLevelTest}
+            onOpenProgress={openPractice}
           />
         )}
       </main>
