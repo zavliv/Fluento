@@ -162,7 +162,7 @@ export default function ChatApp() {
     );
   }
 
-  if (!user || (chat.myTeachers.length === 0 && !active)) {
+  if (!user) {
     return (
       <>
         <LandingPage
@@ -239,7 +239,12 @@ export default function ChatApp() {
             </div>
           </>
         ) : (
-          <TeacherDirectory teachers={teachers} myTeacherIds={myTeacherIds} onSelect={openTeacher} />
+          <TeacherDirectory
+            teachers={teachers}
+            myTeacherIds={myTeacherIds}
+            onSelect={openTeacher}
+            userName={user.name}
+          />
         )}
       </main>
 
