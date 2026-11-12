@@ -277,6 +277,42 @@ export type StoredMessage = {
   created_at: number;
   feedback?: "up" | "down" | null;
   receipt?: "sent" | "read" | null;
+  sig?: string | null;
+};
+
+export type GuardrailsConfig = {
+  daily_messages: number;
+  max_message_chars: number;
+  safety_check: boolean;
+  steer_off_topic: boolean;
+  safety_model: string;
+  block_reply: string;
+  self_harm_reply: string;
+};
+
+export type SafetyFlag = {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  teacher_id: string;
+  teacher_name: string;
+  conversation_id: string | null;
+  category: "off_topic" | "jailbreak" | "harmful" | "self_harm";
+  reason: string;
+  message: string;
+  action: "blocked" | "steered" | "allowed";
+  reviewed: boolean;
+  created_at: string;
+};
+
+export type GuardrailsSummary = {
+  messages_today: number;
+  learners_today: number;
+  at_limit_today: number;
+  flags_week: Record<string, number>;
+  open_flags: number;
+  flags: SafetyFlag[];
 };
 
 export type ConversationSummary = { teacher_id: string; last_message: StoredMessage | null; updated_at: string };
@@ -484,6 +520,13 @@ export const api = {
       request<AdminAccount>(`/admin/team/${id}`, { method: "PATCH", json: { role } }),
     removeMember: (id: string) => request<{ ok: true }>(`/admin/team/${id}`, { method: "DELETE" }),
     stats: () => request<Stats>("/admin/stats"),
+    guardrailsConfig: () => request<GuardrailsConfig>("/admin/guardrails/config"),
+    saveGuardrailsConfig: (body: GuardrailsConfig) =>
+      request<GuardrailsConfig>("/admin/guardrails/config", { method: "PUT", json: body }),
+    guardrailsSummary: (reviewed: boolean) =>
+      request<GuardrailsSummary>(`/admin/guardrails/summary?reviewed=${reviewed}`),
+    reviewFlag: (id: string, reviewed: boolean) =>
+      request<{ ok: true }>(`/admin/guardrails/flags/${id}`, { method: "PUT", json: { reviewed } }),
     progressConfig: () => request<ProgressConfig>("/admin/progress/config"),
     saveProgressConfig: (body: ProgressConfig) =>
       request<ProgressConfig>("/admin/progress/config", { method: "PUT", json: body }),
@@ -547,6 +590,7 @@ export function toStoredMessage(m: Message): StoredMessage {
     created_at: m.createdAt,
     feedback: m.feedback ?? null,
     receipt: m.receipt ?? null,
+    sig: m.sig ?? null,
   };
 }
 
@@ -559,6 +603,7 @@ export function fromStoredMessage(m: StoredMessage): Message {
     createdAt: m.created_at,
     feedback: m.feedback ?? undefined,
     receipt: m.receipt ?? undefined,
+    sig: m.sig ?? undefined,
   };
 }
 

@@ -11,6 +11,7 @@ class StoredMessage(BaseModel):
     created_at: int
     feedback: Literal["up", "down"] | None = None
     receipt: Literal["sent", "read"] | None = None
+    sig: str | None = Field(default=None, max_length=128)
 
 
 class ChatRequest(BaseModel):

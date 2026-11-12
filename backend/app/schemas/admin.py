@@ -61,3 +61,32 @@ class AdminConversationSummary(BaseModel):
 class AdminConversation(AdminConversationSummary):
     messages: list[StoredMessage]
     created_at: datetime | None = None
+
+
+class SafetyFlag(BaseModel):
+    id: str
+    user_id: str
+    user_name: str
+    user_email: str
+    teacher_id: str
+    teacher_name: str
+    conversation_id: str | None
+    category: str
+    reason: str
+    message: str
+    action: str
+    reviewed: bool
+    created_at: datetime
+
+
+class GuardrailsSummary(BaseModel):
+    messages_today: int
+    learners_today: int
+    at_limit_today: int
+    flags_week: dict[str, int]
+    open_flags: int
+    flags: list[SafetyFlag]
+
+
+class FlagReview(BaseModel):
+    reviewed: bool

@@ -22,8 +22,12 @@ async def system_prompt_for(teacher: dict, user: dict | None = None) -> str:
     return build_system_prompt(teacher, rules, app_name, others, learner)
 
 
-async def teacher_reply(teacher: dict, messages: list[dict], user: dict | None = None) -> AsyncIterator[dict]:
+async def teacher_reply(
+    teacher: dict, messages: list[dict], user: dict | None = None, steer: str | None = None
+) -> AsyncIterator[dict]:
     prompt = await system_prompt_for(teacher, user)
+    if steer:
+        prompt += f"\n\nNote for this reply only: {steer}"
     temperature = teacher.get("persona", {}).get("temperature")
     async for event in stream_completion(prompt, messages, temperature):
         yield event

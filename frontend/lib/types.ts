@@ -31,6 +31,7 @@ export type Message = {
   error?: string;
   feedback?: Feedback;
   receipt?: Receipt;
+  sig?: string;
   createdAt: number;
 };
 
@@ -43,4 +44,5 @@ export type StreamEvent =
   | { type: "error"; message: string }
   | { type: "read" }
   | { type: "queued" }
+  | { type: "signed"; sig: string }
   | { type: "done" };

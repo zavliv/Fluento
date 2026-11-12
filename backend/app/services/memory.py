@@ -57,10 +57,15 @@ async def get_memory(user_id: ObjectId) -> LearnerMemory | None:
 
 
 async def memory_active(user: dict) -> bool:
-    return user.get("memory_enabled", True) and (await get_app_settings())["memory_enabled"]
+    return (
+        user.get("memory_enabled", True)
+        and (await get_app_settings())["memory_enabled"]
+    )
 
 
-async def extract_memory(current: MemoryFields, teacher_name: str, messages: list[dict]) -> MemoryFields:
+async def extract_memory(
+    current: MemoryFields, teacher_name: str, messages: list[dict]
+) -> MemoryFields:
     app_settings = await get_app_settings()
     prompt = (
         f"Current memory:\n{current.model_dump_json()}\n\n"
@@ -69,7 +74,10 @@ async def extract_memory(current: MemoryFields, teacher_name: str, messages: lis
     )
     response = await chat_create(
         model=app_settings["llm_model"],
-        messages=[{"role": "system", "content": INSTRUCTIONS}, {"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": INSTRUCTIONS},
+            {"role": "user", "content": prompt},
+        ],
         temperature=0.2,
         max_completion_tokens=2048,
         response_format={"type": "json_object"},
@@ -77,7 +85,9 @@ async def extract_memory(current: MemoryFields, teacher_name: str, messages: lis
     return MemoryFields(**json.loads(response.choices[0].message.content or "{}"))
 
 
-async def maybe_update_memory(user: dict, teacher: dict, messages: list[dict], force: bool = False) -> bool:
+async def maybe_update_memory(
+    user: dict, teacher: dict, messages: list[dict], force: bool = False
+) -> bool:
     key = str(user["_id"])
     if key in _running or not await memory_active(user):
         return False
@@ -93,12 +103,18 @@ async def maybe_update_memory(user: dict, teacher: dict, messages: list[dict], f
     _running.add(key)
     try:
         start = max(0, done - CONTEXT_MESSAGES, len(messages) - MAX_NEW_MESSAGES)
-        current = MemoryFields(**{k: v for k, v in doc.items() if k in MemoryFields.model_fields})
+        current = MemoryFields(
+            **{k: v for k, v in doc.items() if k in MemoryFields.model_fields}
+        )
         updated = await extract_memory(current, teacher["name"], messages[start:])
         await db.memories.update_one(
             {"_id": user["_id"]},
             {
-                "$set": {**updated.model_dump(), "updated_at": now(), f"processed.{teacher['_id']}": len(messages)},
+                "$set": {
+                    **updated.model_dump(),
+                    "updated_at": now(),
+                    f"processed.{teacher['_id']}": len(messages),
+                },
                 "$setOnInsert": {"created_at": now()},
             },
             upsert=True,

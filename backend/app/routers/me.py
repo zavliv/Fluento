@@ -7,6 +7,7 @@ from app.schemas.recommend import GoalUpdate, Recommendation
 from app.security import current_user
 from app.services.app_settings import get_app_settings
 from app.services.conversations import save_conversation
+from app.services.guardrails import trusted_history
 from app.services.memory import get_memory
 from app.services.recommend import recommend
 
@@ -62,7 +63,8 @@ async def get_conversation(teacher_id: str, user: dict = Depends(current_user)) 
 async def replace_conversation(teacher_id: str, body: MessagesUpdate, user: dict = Depends(current_user)) -> dict:
     if await db.teachers.find_one({"_id": teacher_id}, {"_id": 1}) is None:
         raise HTTPException(status_code=404, detail="Unknown teacher.")
-    await save_conversation(user["_id"], teacher_id, [m.model_dump() for m in body.messages])
+    messages = await trusted_history(user["_id"], teacher_id, [m.model_dump() for m in body.messages])
+    await save_conversation(user["_id"], teacher_id, messages)
     return {"ok": True}
 
 

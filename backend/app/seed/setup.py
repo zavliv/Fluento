@@ -35,6 +35,7 @@ async def setup_database() -> None:
         logger.info("Seeded %d rule sections", len(RULE_SECTIONS))
 
     await _update_legacy_rules()
+    await _add_focus_rules()
 
     await db.settings.update_one({"_id": SETTINGS_ID}, {"$setOnInsert": DEFAULTS}, upsert=True)
 
@@ -105,3 +106,16 @@ async def seed_quiz() -> None:
         await db.quiz_questions.insert_many(docs)
     await db.settings.update_one({"_id": "quiz_seed"}, {"$set": {"version": QUIZ_SEED_VERSION}}, upsert=True)
     logger.info("Seeded %d starter quiz questions", len(docs))
+
+
+async def _add_focus_rules() -> None:
+    done = await db.settings.find_one({"_id": "migrations", "focus_rules": True})
+    if done:
+        return
+    section = next(r for r in RULE_SECTIONS if r["id"] == "focus")
+    await db.rules.update_one(
+        {"_id": "focus"},
+        {"$setOnInsert": {**{k: v for k, v in section.items() if k != "id"}, "updated_at": now()}},
+        upsert=True,
+    )
+    await db.settings.update_one({"_id": "migrations"}, {"$set": {"focus_rules": True}}, upsert=True)

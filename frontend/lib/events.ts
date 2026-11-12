@@ -45,6 +45,8 @@ export function applyEvent(message: Message, event: StreamEvent): Message {
       return { ...message, status: "error", error: event.message, parts: settleParts(message.parts) };
     case "done":
       return { ...message, status: "done", parts: settleParts(message.parts) };
+    case "signed":
+      return { ...message, sig: event.sig };
     case "read":
     case "queued":
       return message;

@@ -27,3 +27,7 @@ async def ensure_indexes() -> None:
     await db.quiz_questions.create_index([("level", ASCENDING)])
     await db.challenges.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
     await db.progress.create_index([("league.opt_in", ASCENDING), ("week", ASCENDING), ("xp_week", DESCENDING)])
+    await db.usage.create_index([("day", ASCENDING), ("messages", DESCENDING)])
+    await db.usage.create_index("created_at", expireAfterSeconds=60 * 60 * 24 * 90)
+    await db.safety_flags.create_index([("reviewed", ASCENDING), ("created_at", DESCENDING)])
+    await db.safety_flags.create_index([("user_id", ASCENDING)])

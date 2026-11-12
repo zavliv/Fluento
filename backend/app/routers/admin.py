@@ -1,5 +1,5 @@
 import re
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -12,8 +12,11 @@ from app.schemas.admin import (
     AdminConversation,
     AdminConversationSummary,
     AdminUser,
+    FlagReview,
+    GuardrailsSummary,
     MistakeCategoryCount,
     RecentConversation,
+    SafetyFlag,
     Stats,
     TeacherUsage,
 )
@@ -34,6 +37,9 @@ from app.schemas.rules import RuleSection, RuleSectionCreate, RuleSectionFields,
 from app.schemas.settings import AppSettings
 from app.schemas.teachers import TeacherAdmin, TeacherCreate, TeacherFields, teacher_admin
 from app.security import current_admin
+from app.services.guardrails import GuardrailsConfig
+from app.services.guardrails import get_config as get_guardrails_config
+from app.services.guardrails import save_config as save_guardrails_config
 from app.services.pending import answer_pending
 from app.seed.setup import seed_quiz
 from app.services.progress import ProgressConfig
@@ -289,6 +295,8 @@ async def delete_user(user_id: str) -> dict:
     await db.level_tests.delete_many({"user_id": oid})
     await db.challenges.delete_many({"user_id": oid})
     await db.progress.delete_one({"_id": oid})
+    await db.usage.delete_many({"user_id": oid})
+    await db.safety_flags.delete_many({"user_id": oid})
     return {"ok": True}
 
 
@@ -482,3 +490,90 @@ async def read_progress_config() -> ProgressConfig:
 @router.put("/progress/config")
 async def write_progress_config(body: ProgressConfig) -> ProgressConfig:
     return await save_progress_config(body)
+
+
+@router.get("/guardrails/config")
+async def read_guardrails_config() -> GuardrailsConfig:
+    return await get_guardrails_config()
+
+
+@router.put("/guardrails/config")
+async def write_guardrails_config(body: GuardrailsConfig) -> GuardrailsConfig:
+    return await save_guardrails_config(body)
+
+
+@router.get("/guardrails/summary")
+async def guardrails_summary(reviewed: bool = False, limit: int = 100) -> GuardrailsSummary:
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    usage = await (
+        await db.usage.aggregate(
+            [
+                {"$match": {"day": day}},
+                {"$group": {"_id": None, "messages": {"$sum": "$messages"}, "users": {"$sum": 1}}},
+            ]
+        )
+    ).to_list()
+    config = await get_guardrails_config()
+    at_limit = (
+        await db.usage.count_documents({"day": day, "messages": {"$gte": config.daily_messages}})
+        if config.daily_messages
+        else 0
+    )
+    since = now() - timedelta(days=7)
+    counts = {
+        row["_id"]: row["count"]
+        async for row in await db.safety_flags.aggregate(
+            [{"$match": {"created_at": {"$gte": since}}}, {"$group": {"_id": "$category", "count": {"$sum": 1}}}]
+        )
+    }
+    docs = await db.safety_flags.find({"reviewed": reviewed}).sort("created_at", -1).limit(min(limit, 200)).to_list()
+    users = {
+        u["_id"]: u
+        async for u in db.users.find({"_id": {"$in": list({d["user_id"] for d in docs})}}, {"name": 1, "email": 1})
+    }
+    teachers = {t["_id"]: t["name"] async for t in db.teachers.find({}, {"name": 1})}
+    pairs = {(d["user_id"], d["teacher_id"]) for d in docs}
+    conversations = {
+        (c["user_id"], c["teacher_id"]): str(c["_id"])
+        async for c in db.conversations.find(
+            {"$or": [{"user_id": u, "teacher_id": t} for u, t in pairs]} if pairs else {"_id": None},
+            {"user_id": 1, "teacher_id": 1},
+        )
+    }
+    return GuardrailsSummary(
+        messages_today=usage[0]["messages"] if usage else 0,
+        learners_today=usage[0]["users"] if usage else 0,
+        at_limit_today=at_limit,
+        flags_week=counts,
+        open_flags=await db.safety_flags.count_documents({"reviewed": False}),
+        flags=[
+            SafetyFlag(
+                id=str(d["_id"]),
+                user_id=str(d["user_id"]),
+                user_name=users.get(d["user_id"], {}).get("name", "Deleted learner"),
+                user_email=users.get(d["user_id"], {}).get("email", ""),
+                teacher_id=d["teacher_id"],
+                teacher_name=teachers.get(d["teacher_id"], d["teacher_id"]),
+                conversation_id=conversations.get((d["user_id"], d["teacher_id"])),
+                category=d["category"],
+                reason=d.get("reason", ""),
+                message=d["message"],
+                action=d.get("action", "allowed"),
+                reviewed=d.get("reviewed", False),
+                created_at=d["created_at"],
+            )
+            for d in docs
+        ],
+    )
+
+
+@router.put("/guardrails/flags/{flag_id}")
+async def review_flag(flag_id: str, body: FlagReview) -> dict:
+    try:
+        oid = ObjectId(flag_id)
+    except InvalidId as exc:
+        raise HTTPException(status_code=404, detail="Flag not found.") from exc
+    result = await db.safety_flags.update_one({"_id": oid}, {"$set": {"reviewed": body.reviewed}})
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Flag not found.")
+    return {"ok": True}

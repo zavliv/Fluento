@@ -136,11 +136,18 @@ class GradingError(Exception):
 
 async def get_config() -> LevelTestConfig:
     doc = await db.settings.find_one({"_id": CONFIG_ID}) or {}
-    return LevelTestConfig(**{**DEFAULT_CONFIG.model_dump(), **{k: v for k, v in doc.items() if k != "_id"}})
+    return LevelTestConfig(
+        **{
+            **DEFAULT_CONFIG.model_dump(),
+            **{k: v for k, v in doc.items() if k != "_id"},
+        }
+    )
 
 
 async def save_config(config: LevelTestConfig) -> LevelTestConfig:
-    await db.settings.update_one({"_id": CONFIG_ID}, {"$set": config.model_dump()}, upsert=True)
+    await db.settings.update_one(
+        {"_id": CONFIG_ID}, {"$set": config.model_dump()}, upsert=True
+    )
     return config
 
 
@@ -156,8 +163,14 @@ def _fill(template: str, values: dict[str, str]) -> str:
 def _valid_question(item: object) -> dict | None:
     if not isinstance(item, dict):
         return None
-    options = [" ".join(str(o).split()) for o in item.get("options", []) if str(o).strip()]
-    level, skill, question = item.get("level"), item.get("skill"), " ".join(str(item.get("question", "")).split())
+    options = [
+        " ".join(str(o).split()) for o in item.get("options", []) if str(o).strip()
+    ]
+    level, skill, question = (
+        item.get("level"),
+        item.get("skill"),
+        " ".join(str(item.get("question", "")).split()),
+    )
     answer = item.get("answer_index")
     if (
         level not in LEVELS
@@ -188,10 +201,16 @@ def _confirmed(review: str, items: list[dict]) -> set[int]:
         return confirmed
     for check in checks:
         try:
-            index, correct = int(check["index"]), {int(c) for c in check.get("correct", [])}
+            index, correct = int(check["index"]), {
+                int(c) for c in check.get("correct", [])
+            }
         except (KeyError, TypeError, ValueError):
             continue
-        if 0 <= index < len(items) and check.get("makes_sense") is True and correct == {items[index]["answer_index"]}:
+        if (
+            0 <= index < len(items)
+            and check.get("makes_sense") is True
+            and correct == {items[index]["answer_index"]}
+        ):
             confirmed.add(index)
     return confirmed
 
@@ -217,10 +236,19 @@ async def _generate_batch() -> int:
             json_mode=True,
         )
     )
-    items = [q for q in (_valid_question(i) for i in json.loads(raw or "{}").get("questions", [])) if q]
+    items = [
+        q
+        for q in (
+            _valid_question(i) for i in json.loads(raw or "{}").get("questions", [])
+        )
+        if q
+    ]
     if not items:
         return 0
-    listing = [{"index": i, "question": q["question"], "options": q["options"]} for i, q in enumerate(items)]
+    listing = [
+        {"index": i, "question": q["question"], "options": q["options"]}
+        for i, q in enumerate(items)
+    ]
     confirmed = set(range(len(items)))
     for _ in range(REVIEWERS):
         review = await _with_retry(
@@ -238,17 +266,28 @@ async def _generate_batch() -> int:
     flawed = set(range(len(items))) - confirmed
     existing = set(await db.quiz_questions.distinct("question"))
     good = [
-        {**q, "created_at": now()} for i, q in enumerate(items) if i not in flawed and q["question"] not in existing
+        {**q, "created_at": now()}
+        for i, q in enumerate(items)
+        if i not in flawed and q["question"] not in existing
     ]
     if good:
         await db.quiz_questions.insert_many(good)
-    logger.info("Added %d of %d generated quiz questions (%d flagged)", len(good), len(items), len(flawed))
+    logger.info(
+        "Added %d of %d generated quiz questions (%d flagged)",
+        len(good),
+        len(items),
+        len(flawed),
+    )
     return len(good)
 
 
 async def pool_counts() -> dict[str, int]:
     counts = {level: 0 for level in LEVELS}
-    for row in await (await db.quiz_questions.aggregate([{"$group": {"_id": "$level", "n": {"$sum": 1}}}])).to_list():
+    for row in await (
+        await db.quiz_questions.aggregate(
+            [{"$group": {"_id": "$level", "n": {"$sum": 1}}}]
+        )
+    ).to_list():
         if row["_id"] in counts:
             counts[row["_id"]] = row["n"]
     return counts
@@ -263,7 +302,13 @@ async def generate_more(batches: int = 1) -> None:
             if i:
                 await asyncio.sleep(BATCH_PAUSE)
             await _generate_batch()
-    except (groq.GroqError, json.JSONDecodeError, AttributeError, TypeError, ValueError) as exc:
+    except (
+        groq.GroqError,
+        json.JSONDecodeError,
+        AttributeError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.warning("Generating quiz questions failed: %s", exc)
     finally:
         _refill["running"] = False
@@ -277,13 +322,19 @@ async def _sample(level: str, exclude: list[ObjectId], size: int) -> list[dict]:
     match: dict = {"level": level}
     if exclude:
         match["_id"] = {"$nin": exclude}
-    return await (await db.quiz_questions.aggregate([{"$match": match}, {"$sample": {"size": size}}])).to_list()
+    return await (
+        await db.quiz_questions.aggregate(
+            [{"$match": match}, {"$sample": {"size": size}}]
+        )
+    ).to_list()
 
 
 async def build_quiz(user_id: ObjectId, count: int) -> dict | None:
     seen = [
         ObjectId(q["id"])
-        async for t in db.level_tests.find({"user_id": user_id, "quiz": {"$exists": True}}, {"quiz.bank.id": 1})
+        async for t in db.level_tests.find(
+            {"user_id": user_id, "quiz": {"$exists": True}}, {"quiz.bank.id": 1}
+        )
         for q in t["quiz"]["bank"]
         if ObjectId.is_valid(q["id"])
     ]
@@ -298,10 +349,18 @@ async def build_quiz(user_id: ObjectId, count: int) -> dict | None:
     if len({q["level"] for q in bank}) < len(LEVELS) - 1 or len(bank) < count:
         return None
     bank = [
-        {k: q[k] for k in ("level", "skill", "question", "options", "answer_index")} | {"id": str(q["_id"])}
+        {k: q[k] for k in ("level", "skill", "question", "options", "answer_index")}
+        | {"id": str(q["_id"])}
         for q in bank
     ]
-    quiz = {"bank": bank, "asked": [], "total": count, "step": QUIZ_START, "current": None, "last": None}
+    quiz = {
+        "bank": bank,
+        "asked": [],
+        "total": count,
+        "step": QUIZ_START,
+        "current": None,
+        "last": None,
+    }
     _next(quiz)
     return quiz
 
@@ -313,7 +372,11 @@ def _pick(quiz: dict) -> str | None:
         for index in {quiz["step"] - distance, quiz["step"] + distance}:
             if not 0 <= index < len(LEVELS):
                 continue
-            options = [q for q in quiz["bank"] if q["level"] == LEVELS[index] and q["id"] not in used]
+            options = [
+                q
+                for q in quiz["bank"]
+                if q["level"] == LEVELS[index] and q["id"] not in used
+            ]
             if options:
                 options.sort(key=lambda q: q["skill"] == last_skill)
                 quiz["last_skill"] = options[0]["skill"]
@@ -341,14 +404,24 @@ def answer_quiz(quiz: dict, choice: int) -> None:
     else:
         correct = choice == item["answer_index"]
     quiz["asked"].append(
-        {"id": item["id"], "chosen": choice, "correct": correct, "format": fmt, "shown": quiz.get("shown")}
+        {
+            "id": item["id"],
+            "chosen": choice,
+            "correct": correct,
+            "format": fmt,
+            "shown": quiz.get("shown"),
+        }
     )
     quiz["last"] = {
         "correct": correct,
         "answer": item["options"][item["answer_index"]],
-        "sentence": item["question"].replace("___", item["options"][item["answer_index"]]),
+        "sentence": item["question"].replace(
+            "___", item["options"][item["answer_index"]]
+        ),
     }
-    quiz["step"] = min(len(LEVELS) - 1, quiz["step"] + 1) if correct else max(0, quiz["step"] - 1)
+    quiz["step"] = (
+        min(len(LEVELS) - 1, quiz["step"] + 1) if correct else max(0, quiz["step"] - 1)
+    )
     _next(quiz)
 
 
@@ -387,7 +460,11 @@ async def next_question(test: dict, config: LevelTestConfig, name: str) -> str:
     app_name = (await get_app_settings())["app_name"]
     number = sum(1 for m in test["messages"] if m["role"] == "learner") + 1
     estimate = quiz_level(test.get("quiz"))
-    start = f"the quick check suggests about {estimate}" if estimate else "unknown, so start easy"
+    start = (
+        f"the quick check suggests about {estimate}"
+        if estimate
+        else "unknown, so start easy"
+    )
     system = _fill(
         config.examiner_prompt,
         {
@@ -400,7 +477,11 @@ async def next_question(test: dict, config: LevelTestConfig, name: str) -> str:
         },
     )
     history = [
-        {"role": "assistant" if m["role"] == "examiner" else "user", "content": m["content"]} for m in test["messages"]
+        {
+            "role": "assistant" if m["role"] == "examiner" else "user",
+            "content": m["content"],
+        }
+        for m in test["messages"]
     ]
     if not history:
         history = [{"role": "user", "content": "I'm ready to start."}]
@@ -435,7 +516,8 @@ async def grade(test: dict, config: LevelTestConfig) -> LevelResult:
     teachers = await db.teachers.find({"enabled": True}).sort("order", 1).to_list()
     ids = {t["_id"] for t in teachers}
     listing = "\n".join(
-        f"- {t['_id']}: {t['name']}, {t.get('specialty', '')} ({t.get('level', 'All levels')})" for t in teachers
+        f"- {t['_id']}: {t['name']}, {t.get('specialty', '')} ({t.get('level', 'All levels')})"
+        for t in teachers
     )
     system = f"{config.grading_prompt}\n\n{_fill(OUTPUT_FORMAT, {'teachers': listing or '- none'})}"
     prompt = (
@@ -447,7 +529,11 @@ async def grade(test: dict, config: LevelTestConfig) -> LevelResult:
     for _ in range(2):
         try:
             raw = await complete(
-                system, [{"role": "user", "content": prompt}], temperature=0.1, max_tokens=4000, json_mode=True
+                system,
+                [{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=4000,
+                json_mode=True,
             )
             result = LevelResult(**json.loads(raw or "{}"))
         except (json.JSONDecodeError, ValidationError, TypeError) as exc:
