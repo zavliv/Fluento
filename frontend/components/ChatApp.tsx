@@ -29,6 +29,7 @@ export default function ChatApp() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { teachers, active, messages, select, stop, isStreaming, clear, restore } = chat;
+  const { myTeacherIds, addTeacher, removeTeacher } = chat;
 
   const openTeacher = useCallback(
     (id: string | null) => {
@@ -47,6 +48,21 @@ export default function ChatApp() {
       action: { label: "Undo", onClick: () => restore(active.id, previous) },
     });
   }, [active, messages, clear, restore, toast]);
+
+  const removeFromMyTeachers = useCallback(
+    (id: string) => {
+      const teacher = teachers.find((t) => t.id === id);
+      const index = myTeacherIds.indexOf(id);
+      removeTeacher(id);
+      if (teacher) {
+        toast({
+          message: `${teacher.name} removed from your teachers`,
+          action: { label: "Undo", onClick: () => addTeacher(id, index) },
+        });
+      }
+    },
+    [teachers, myTeacherIds, removeTeacher, addTeacher, toast],
+  );
 
   const exportCurrent = useCallback(() => {
     if (!active) return;
@@ -114,8 +130,9 @@ export default function ChatApp() {
         open={sidebarOpen}
         onOpen={() => setSidebarOpen(true)}
         onClose={() => setSidebarOpen(false)}
-        teachers={teachers}
+        teachers={chat.myTeachers}
         activeId={active?.id ?? null}
+        onRemove={removeFromMyTeachers}
         streamingTeacherId={chat.streamingTeacherId}
         lastMessage={chat.lastMessage}
         onSelect={openTeacher}
@@ -164,7 +181,12 @@ export default function ChatApp() {
             </div>
           </>
         ) : (
-          <TeacherDirectory teachers={teachers} online={online} lastMessage={chat.lastMessage} onSelect={openTeacher} />
+          <TeacherDirectory
+            teachers={teachers}
+            online={online}
+            myTeacherIds={chat.myTeacherIds}
+            onSelect={openTeacher}
+          />
         )}
       </main>
 

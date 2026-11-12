@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_URL, streamChat, toApiMessages } from "@/lib/api";
 import { applyEvent, settleParts } from "@/lib/events";
-import { loadActiveTeacher, loadTeacherChats, saveActiveTeacher, saveTeacherChats } from "@/lib/storage";
+import {
+  loadActiveTeacher,
+  loadMyTeachers,
+  loadTeacherChats,
+  saveActiveTeacher,
+  saveMyTeachers,
+  saveTeacherChats,
+} from "@/lib/storage";
 import { TEACHERS, type Teacher } from "@/lib/teachers";
 import type { Feedback, Message, TeacherChats } from "@/lib/types";
 import { uid } from "@/lib/utils";
@@ -31,7 +38,36 @@ export function useTeacherChats() {
     return () => clearTimeout(timer);
   }, [chats, streaming]);
 
+  const [myTeacherIds, setMyTeacherIds] = useState<string[]>(() => {
+    const saved = loadMyTeachers();
+    if (saved) return saved;
+    const lastActivity = (id: string) => chats[id]?.at(-1)?.createdAt ?? 0;
+    return Object.keys(chats)
+      .filter((id) => chats[id].length > 0)
+      .sort((a, b) => lastActivity(b) - lastActivity(a));
+  });
+
   useEffect(() => saveActiveTeacher(activeId), [activeId]);
+  useEffect(() => saveMyTeachers(myTeacherIds), [myTeacherIds]);
+
+  const myTeachers = useMemo(
+    () => myTeacherIds.map((id) => teachers.find((t) => t.id === id)).filter((t): t is Teacher => Boolean(t)),
+    [myTeacherIds, teachers],
+  );
+
+  const select = useCallback((id: string | null) => {
+    setActiveId(id);
+    if (id) setMyTeacherIds((ids) => (ids.includes(id) ? ids : [id, ...ids]));
+  }, []);
+
+  const addTeacher = useCallback((id: string, index = 0) => {
+    setMyTeacherIds((ids) => (ids.includes(id) ? ids : [...ids.slice(0, index), id, ...ids.slice(index)]));
+  }, []);
+
+  const removeTeacher = useCallback((id: string) => {
+    setMyTeacherIds((ids) => ids.filter((x) => x !== id));
+    setActiveId((current) => (current === id ? null : current));
+  }, []);
 
   const active = useMemo(() => teachers.find((t) => t.id === activeId) ?? null, [teachers, activeId]);
 
@@ -81,6 +117,7 @@ export function useTeacherChats() {
         status: "done",
         createdAt: Date.now(),
       };
+      setMyTeacherIds((ids) => [active.id, ...ids.filter((id) => id !== active.id)]);
       void runAssistant(active, [...messagesFor(active), userMessage]);
     },
     [active, streaming, messagesFor, runAssistant],
@@ -148,7 +185,11 @@ export function useTeacherChats() {
     teachers,
     active,
     messages,
-    select: setActiveId,
+    myTeachers,
+    myTeacherIds,
+    select,
+    addTeacher,
+    removeTeacher,
     streamingTeacherId: streaming?.teacherId ?? null,
     isStreaming: streaming !== null,
     send,

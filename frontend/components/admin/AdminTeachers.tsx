@@ -19,6 +19,8 @@ const blankTeacher = (): Teacher => ({
   tagline: "",
   personality: "",
   starters: [],
+  tags: [],
+  goals: [],
   level: "All levels",
   voice: "female",
   color: "#0d9488",

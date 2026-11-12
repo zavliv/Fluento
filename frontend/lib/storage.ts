@@ -31,6 +31,23 @@ export function saveTeacherChats(chats: TeacherChats) {
   } catch {}
 }
 
+const MY_TEACHERS_KEY = "fluento:my-teachers";
+
+export function loadMyTeachers(): string[] | null {
+  try {
+    const raw = localStorage.getItem(MY_TEACHERS_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveMyTeachers(ids: string[]) {
+  try {
+    localStorage.setItem(MY_TEACHERS_KEY, JSON.stringify(ids));
+  } catch {}
+}
+
 export function loadActiveTeacher(): string | null {
   try {
     return localStorage.getItem(ACTIVE_KEY) ?? localStorage.getItem(OLD_ACTIVE_KEY);

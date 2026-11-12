@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  GraduationCap,
   Keyboard,
   LayoutDashboard,
   LayoutGrid,
@@ -10,6 +11,7 @@ import {
   PanelLeftClose,
   Search,
   Sun,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import type { Theme } from "@/hooks/useTheme";
@@ -32,6 +34,7 @@ type Props = {
   streamingTeacherId: string | null;
   lastMessage: (teacherId: string) => Message | null;
   onSelect: (teacherId: string | null) => void;
+  onRemove: (teacherId: string) => void;
   onOpenPalette: () => void;
   onOpenShortcuts: () => void;
   theme: Theme;
@@ -95,54 +98,88 @@ export function Sidebar(props: Props) {
         </div>
 
         <nav className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          <p className="px-2.5 pt-2 pb-1.5 text-[11px] font-medium tracking-wider text-subtle uppercase">
-            Your teachers
-          </p>
-          <ul className="space-y-0.5">
-            {teachers.map((teacher) => {
-              const last = props.lastMessage(teacher.id);
-              const active = teacher.id === activeId;
-              const preview = last
-                ? `${last.role === "user" ? "You: " : ""}${toSpeakableText(messageText(last))}`
-                : teacher.specialty;
-              return (
-                <li key={teacher.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(teacher.id)}
-                    className={cn(
-                      "relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors",
-                      active ? "bg-hover" : "hover:bg-hover/70",
-                    )}
-                  >
-                    {active && <span className="absolute top-2.5 bottom-2.5 left-0 w-[3px] rounded-full bg-accent" />}
-                    <TeacherAvatar
-                      name={teacher.name}
-                      color={teacher.color}
-                      size={36}
-                      ring={active ? "var(--hover)" : "var(--sidebar)"}
-                      presence={props.online === null ? null : props.online ? "online" : "offline"}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className={cn("truncate text-sm text-ink", active ? "font-semibold" : "font-medium")}>
-                          {teacher.name}
-                        </span>
-                        {last && <span className="shrink-0 text-[11px] text-subtle">{shortTime(last.createdAt)}</span>}
-                      </span>
-                      <span className="mt-0.5 flex items-center gap-1.5">
-                        {props.streamingTeacherId === teacher.id ? (
-                          <span className="shimmer-text truncate text-xs font-medium">typing…</span>
-                        ) : (
-                          <span className="truncate text-xs text-muted">{preview}</span>
+          {teachers.length === 0 ? (
+            <div className="mx-1 mt-2 flex flex-col items-center rounded-2xl border border-dashed border-line px-4 py-8 text-center">
+              <span className="flex size-11 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                <GraduationCap className="size-5" />
+              </span>
+              <p className="mt-3 text-sm font-semibold text-ink">No teachers yet</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                Pick a teacher to start learning. They&apos;ll appear here so you can come back anytime.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="px-2.5 pt-2 pb-1.5 text-[11px] font-medium tracking-wider text-subtle uppercase">
+                My teachers
+              </p>
+              <ul className="space-y-0.5">
+                {teachers.map((teacher) => {
+                  const last = props.lastMessage(teacher.id);
+                  const active = teacher.id === activeId;
+                  const preview = last
+                    ? `${last.role === "user" ? "You: " : ""}${toSpeakableText(messageText(last))}`
+                    : "Say hello to start";
+                  return (
+                    <li key={teacher.id} className="group/item relative">
+                      <button
+                        type="button"
+                        onClick={() => onSelect(teacher.id)}
+                        className={cn(
+                          "relative flex w-full items-center gap-3 rounded-xl py-2 pr-8 pl-2.5 text-left transition-colors",
+                          active ? "bg-hover" : "hover:bg-hover/70",
                         )}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                      >
+                        {active && (
+                          <span
+                            className="absolute top-2.5 bottom-2.5 left-0 w-[3px] rounded-full"
+                            style={{ background: teacher.color }}
+                          />
+                        )}
+                        <TeacherAvatar
+                          name={teacher.name}
+                          color={teacher.color}
+                          size={36}
+                          ring={active ? "var(--hover)" : "var(--sidebar)"}
+                          presence={props.online === null ? null : props.online ? "online" : "offline"}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-baseline justify-between gap-2">
+                            <span className={cn("truncate text-sm text-ink", active ? "font-semibold" : "font-medium")}>
+                              {teacher.name}
+                            </span>
+                            {last && (
+                              <span className="shrink-0 text-[11px] text-subtle transition-opacity group-hover/item:opacity-0">
+                                {shortTime(last.createdAt)}
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5">
+                            {props.streamingTeacherId === teacher.id ? (
+                              <span className="shimmer-text truncate text-xs font-medium">typing…</span>
+                            ) : (
+                              <span className={cn("truncate text-xs", last ? "text-muted" : "text-subtle italic")}>
+                                {preview}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => props.onRemove(teacher.id)}
+                        aria-label={`Remove ${teacher.name} from my teachers`}
+                        title="Remove from my teachers"
+                        className="absolute top-2 right-1.5 flex size-6 items-center justify-center rounded-md text-subtle opacity-0 transition-all group-hover/item:opacity-100 hover:bg-line/70 hover:text-ink focus-visible:opacity-100"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
         </nav>
 
         <footer className="space-y-3 border-t border-line p-3">

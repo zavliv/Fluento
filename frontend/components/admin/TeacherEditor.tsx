@@ -128,6 +128,18 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
             <Textarea rows={2} value={draft.personality} onChange={(e) => set("personality", e.target.value)} />
           </Field>
 
+          <Field label="Skill tags" hint="Comma separated. Shown on the teacher card.">
+            <Input
+              value={draft.tags.join(", ")}
+              onChange={(e) =>
+                set(
+                  "tags",
+                  e.target.value.split(",").map((t) => t.trimStart()),
+                )
+              }
+            />
+          </Field>
+
           <Field label="Conversation starters" hint="One per line. Shown as tap-to-send prompts in a new conversation.">
             <Textarea
               rows={3}
@@ -168,7 +180,13 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
             <Button
               variant="primary"
               disabled={!canSave}
-              onClick={() => onSave({ ...draft, starters: draft.starters.map((s) => s.trim()).filter(Boolean) })}
+              onClick={() =>
+                onSave({
+                  ...draft,
+                  starters: draft.starters.map((s) => s.trim()).filter(Boolean),
+                  tags: draft.tags.map((t) => t.trim()).filter(Boolean),
+                })
+              }
             >
               {isNew ? "Add teacher" : "Save changes"}
             </Button>

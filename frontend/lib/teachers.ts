@@ -3,6 +3,17 @@ import type { CSSProperties } from "react";
 export type TeacherLevel = "Beginner" | "Intermediate" | "Advanced" | "All levels";
 export type TeacherVoice = "female" | "male";
 
+export const GOALS = [
+  { id: "speaking", label: "Speaking" },
+  { id: "grammar", label: "Grammar" },
+  { id: "vocabulary", label: "Vocabulary" },
+  { id: "exams", label: "Exams" },
+  { id: "work", label: "Work" },
+  { id: "beginners", label: "Beginners" },
+] as const;
+
+export type TeacherGoal = (typeof GOALS)[number]["id"];
+
 export type Teacher = {
   id: string;
   name: string;
@@ -10,6 +21,8 @@ export type Teacher = {
   tagline: string;
   personality: string;
   starters: string[];
+  tags: string[];
+  goals: TeacherGoal[];
   level: TeacherLevel;
   voice: TeacherVoice;
   color: string;
@@ -28,6 +41,8 @@ export const TEACHERS: Teacher[] = [
       "Help me practise small talk with a new colleague.",
       "What's a natural way to say I'm really tired?",
     ],
+    tags: ["Small talk", "Confidence", "Daily life"],
+    goals: ["speaking", "beginners"],
     level: "Beginner",
     voice: "female",
     color: "#e11d48",
@@ -44,6 +59,8 @@ export const TEACHERS: Teacher[] = [
       'Help me answer "Tell me about yourself".',
       'How should I answer "What is your biggest weakness?"',
     ],
+    tags: ["Mock interviews", "STAR answers", "Feedback scores"],
+    goals: ["speaking", "work"],
     level: "Intermediate",
     voice: "male",
     color: "#4f46e5",
@@ -60,6 +77,8 @@ export const TEACHERS: Teacher[] = [
       "Check this sentence: She don't like coffee.",
       "Explain present perfect vs past simple, simply.",
     ],
+    tags: ["Tenses", "Articles", "Clear rules"],
+    goals: ["grammar"],
     level: "All levels",
     voice: "female",
     color: "#0d9488",
@@ -76,6 +95,8 @@ export const TEACHERS: Teacher[] = [
       "Give me an idiom for today, with a quick quiz.",
       'What\'s a better word than "very good"?',
     ],
+    tags: ["New words", "Idioms", "Word games"],
+    goals: ["vocabulary"],
     level: "Intermediate",
     voice: "male",
     color: "#d97706",
@@ -92,6 +113,8 @@ export const TEACHERS: Teacher[] = [
       "Give me a Part 2 cue card and time me.",
       "How can I move from band 6 to band 7?",
     ],
+    tags: ["IELTS speaking", "Band scores", "Exam tips"],
+    goals: ["exams"],
     level: "Advanced",
     voice: "female",
     color: "#7c3aed",
@@ -108,6 +131,8 @@ export const TEACHERS: Teacher[] = [
       '"I am having a car" sahi hai ya galat?',
       "Daily use ke 5 simple English sentences sikhao.",
     ],
+    tags: ["Hindi support", "Basics", "Confidence"],
+    goals: ["beginners", "speaking"],
     level: "Beginner",
     voice: "female",
     color: "#db2777",
@@ -124,6 +149,8 @@ export const TEACHERS: Teacher[] = [
       "Make this more professional: pls send the file asap",
       "How do I politely follow up on an unanswered email?",
     ],
+    tags: ["Emails", "Tone", "Clarity"],
+    goals: ["work"],
     level: "Advanced",
     voice: "male",
     color: "#0369a1",
