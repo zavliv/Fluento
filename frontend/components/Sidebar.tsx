@@ -184,67 +184,88 @@ function Rail({
 }: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
+  const railButton = "size-10 rounded-xl [&_svg]:size-[18px]";
 
   return (
-    <aside className="hidden w-[64px] shrink-0 flex-col items-center gap-1 border-r border-line bg-sidebar py-3 md:flex">
-      <button type="button" onClick={onOpen} aria-label="Open sidebar" className="mb-2">
-        <LogoMark size={36} />
-      </button>
-      <IconButton label={`Open sidebar (${shortcut("B")})`} tooltip="right" onClick={onOpen} className="size-9">
-        <PanelLeft />
-      </IconButton>
-      <IconButton label="All teachers" tooltip="right" onClick={() => onSelect(null)} className="size-9">
-        <LayoutGrid />
-      </IconButton>
-      <IconButton
-        label={`Find a teacher (${shortcut("K")})`}
-        tooltip="right"
-        onClick={onOpenPalette}
-        className="size-9"
-      >
-        <Search />
-      </IconButton>
-
-      <div className="my-2 h-px w-8 bg-line" />
-
-      <div className="flex min-h-0 flex-col items-center gap-1.5 overflow-y-auto">
-        {teachers.map((teacher) => (
-          <button
-            key={teacher.id}
-            type="button"
-            onClick={() => onSelect(teacher.id)}
-            aria-label={teacher.name}
-            data-tip={`${teacher.name} · ${teacher.specialty}`}
-            className={cn(
-              "tip tip-right rounded-[30%] p-0.5 transition-all",
-              teacher.id === activeId ? "ring-2 ring-accent" : "opacity-80 hover:opacity-100",
-            )}
-          >
-            <TeacherAvatar
-              name={teacher.name}
-              color={teacher.color}
-              size={34}
-              ring="var(--sidebar)"
-              presence={online === null ? null : online ? "online" : "offline"}
-            />
-          </button>
-        ))}
+    <aside className="hidden w-[68px] shrink-0 flex-col border-r border-line bg-sidebar md:flex">
+      <div className="flex h-14 shrink-0 items-center justify-center border-b border-line/70">
+        <button
+          type="button"
+          onClick={() => onSelect(null)}
+          aria-label="All teachers"
+          data-tip="All teachers"
+          className="tip tip-right rounded-[30%] transition-transform hover:scale-105"
+        >
+          <LogoMark size={34} />
+        </button>
       </div>
 
-      <div className="mt-auto flex flex-col items-center gap-1 pt-2">
-        <IconButton label="Keyboard shortcuts" tooltip="right" onClick={onOpenShortcuts} className="size-9">
+      <div className="flex flex-col items-center gap-1 pt-3">
+        <IconButton label={`Expand sidebar (${shortcut("B")})`} tooltip="right" onClick={onOpen} className={railButton}>
+          <PanelLeft />
+        </IconButton>
+        <IconButton
+          label={`Find a teacher (${shortcut("K")})`}
+          tooltip="right"
+          onClick={onOpenPalette}
+          className={railButton}
+        >
+          <Search />
+        </IconButton>
+      </div>
+
+      <div className="mx-auto my-3 h-px w-7 bg-line" />
+
+      <nav aria-label="Teachers" className="flex flex-col gap-1">
+        {teachers.map((teacher) => {
+          const active = teacher.id === activeId;
+          return (
+            <div key={teacher.id} className="group/rail relative flex justify-center">
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute top-1/2 left-0 w-[3px] -translate-y-1/2 rounded-r-full transition-all duration-200",
+                  active ? "h-6 opacity-100" : "h-2 opacity-0 group-hover/rail:opacity-60",
+                )}
+                style={{ background: teacher.color }}
+              />
+              <button
+                type="button"
+                onClick={() => onSelect(teacher.id)}
+                aria-label={teacher.name}
+                aria-current={active ? "page" : undefined}
+                data-tip={`${teacher.name} · ${teacher.specialty}`}
+                className={cn(
+                  "tip tip-right flex size-11 items-center justify-center rounded-xl transition-colors",
+                  active ? "bg-hover" : "hover:bg-hover/70",
+                )}
+              >
+                <TeacherAvatar
+                  name={teacher.name}
+                  color={teacher.color}
+                  size={32}
+                  className={cn("transition-opacity", !active && "opacity-75 group-hover/rail:opacity-100")}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="mt-auto flex flex-col items-center gap-1 border-t border-line/70 py-3">
+        <IconButton label="Keyboard shortcuts" tooltip="right" onClick={onOpenShortcuts} className={railButton}>
           <Keyboard />
         </IconButton>
         <IconButton
           label={`Theme: ${theme}`}
           tooltip="right"
           onClick={() => onThemeChange(next[theme])}
-          className="size-9"
+          className={railButton}
         >
           <ThemeIcon />
         </IconButton>
         <span
-          className="tip tip-right mt-2 flex size-9 items-center justify-center"
+          className="tip tip-right flex size-10 items-center justify-center"
           data-tip={online === null ? "Checking backend…" : online ? "Backend connected" : "Backend offline"}
         >
           <StatusDot online={online} />
