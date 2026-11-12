@@ -1,64 +1,57 @@
 "use client";
 
-import { Keyboard, Monitor, MessageSquare, Moon, PanelLeft, Pin, SquarePen, Sun } from "lucide-react";
+import { Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBackendStatus } from "@/hooks/useBackendStatus";
-import { useChat } from "@/hooks/useChat";
+import { useTeacherChats } from "@/hooks/useTeacherChats";
 import { useTheme } from "@/hooks/useTheme";
 import { exportConversation } from "@/lib/export";
 import { shortcut } from "@/lib/utils";
 import { ChatHeader } from "./ChatHeader";
 import { CommandPalette, type Command } from "./CommandPalette";
 import { Composer } from "./Composer";
-import { EmptyState } from "./EmptyState";
 import { MessageList } from "./MessageList";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
+import { TeacherAvatar } from "./TeacherAvatar";
+import { TeacherDirectory } from "./TeacherDirectory";
 import { useToast } from "./ui/Toast";
 
 const isMobile = () => window.innerWidth < 768;
 
 export default function ChatApp() {
-  const chat = useChat();
+  const chat = useTeacherChats();
   const { theme, setTheme } = useTheme();
   const { online, model } = useBackendStatus();
   const toast = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const { newChat, stop, isStreaming, conversations, select, remove, restore, togglePin } = chat;
+  const { teachers, active, messages, select, stop, isStreaming, clear, restore } = chat;
 
-  const closeOnMobile = () => {
-    if (isMobile()) setSidebarOpen(false);
-  };
-
-  const deleteChat = useCallback(
-    (id: string) => {
-      const removed = remove(id);
-      if (!removed) return;
-      toast({ message: "Chat deleted", action: { label: "Undo", onClick: () => restore(removed) } });
+  const openTeacher = useCallback(
+    (id: string | null) => {
+      select(id);
+      if (isMobile()) setSidebarOpen(false);
     },
-    [remove, restore, toast],
+    [select],
   );
 
-  const exportChat = useCallback(
-    (id: string) => {
-      const conversation = conversations.find((c) => c.id === id);
-      if (!conversation) return;
-      exportConversation(conversation);
-      toast({ message: "Chat exported as Markdown" });
-    },
-    [conversations, toast],
-  );
+  const clearConversation = useCallback(() => {
+    if (!active) return;
+    const previous = messages;
+    clear(active.id);
+    toast({
+      message: `Conversation with ${active.name} cleared`,
+      action: { label: "Undo", onClick: () => restore(active.id, previous) },
+    });
+  }, [active, messages, clear, restore, toast]);
 
-  const pinChat = useCallback(
-    (id: string) => {
-      const pinned = conversations.find((c) => c.id === id)?.pinned;
-      togglePin(id);
-      toast({ message: pinned ? "Chat unpinned" : "Chat pinned to top" });
-    },
-    [conversations, togglePin, toast],
-  );
+  const exportCurrent = useCallback(() => {
+    if (!active) return;
+    exportConversation(active.name, messages);
+    toast({ message: "Conversation exported as Markdown" });
+  }, [active, messages, toast]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -70,9 +63,6 @@ export default function ChatApp() {
       } else if (mod && key === "/") {
         e.preventDefault();
         setShortcutsOpen((o) => !o);
-      } else if (mod && e.shiftKey && key === "o") {
-        e.preventDefault();
-        newChat();
       } else if (mod && key === "b") {
         e.preventDefault();
         setSidebarOpen((o) => !o);
@@ -82,11 +72,11 @@ export default function ChatApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [newChat, stop, isStreaming]);
+  }, [stop, isStreaming]);
 
   const commands = useMemo<Command[]>(() => {
     const actions: Command[] = [
-      { id: "new", label: "New chat", group: "Actions", icon: <SquarePen />, hint: shortcut("⇧", "O"), run: newChat },
+      { id: "all", label: "All teachers", group: "Actions", icon: <LayoutGrid />, run: () => openTeacher(null) },
       {
         id: "sidebar",
         label: "Toggle sidebar",
@@ -107,22 +97,15 @@ export default function ChatApp() {
         run: () => setShortcutsOpen(true),
       },
     ];
-    const chats: Command[] = [...conversations]
-      .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt)
-      .map((c) => ({
-        id: `chat-${c.id}`,
-        label: c.title,
-        group: "Chats",
-        icon: c.pinned ? <Pin /> : <MessageSquare />,
-        run: () => {
-          select(c.id);
-          if (isMobile()) setSidebarOpen(false);
-        },
-      }));
-    return [...actions, ...chats];
-  }, [conversations, newChat, select, setTheme]);
-
-  const messages = chat.active?.messages ?? [];
+    const teacherCommands: Command[] = teachers.map((t) => ({
+      id: `teacher-${t.id}`,
+      label: `${t.name} · ${t.specialty}`,
+      group: "Teachers",
+      icon: <TeacherAvatar name={t.name} color={t.color} size={18} />,
+      run: () => openTeacher(t.id),
+    }));
+    return [...teacherCommands, ...actions];
+  }, [teachers, openTeacher, setTheme]);
 
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
@@ -130,21 +113,11 @@ export default function ChatApp() {
         open={sidebarOpen}
         onOpen={() => setSidebarOpen(true)}
         onClose={() => setSidebarOpen(false)}
-        conversations={conversations}
-        activeId={chat.activeId}
-        streamingConversationId={chat.streamingConversationId}
-        onSelect={(id) => {
-          select(id);
-          closeOnMobile();
-        }}
-        onNew={() => {
-          newChat();
-          closeOnMobile();
-        }}
-        onDelete={deleteChat}
-        onRename={chat.rename}
-        onTogglePin={pinChat}
-        onExport={exportChat}
+        teachers={teachers}
+        activeId={active?.id ?? null}
+        streamingTeacherId={chat.streamingTeacherId}
+        lastMessage={chat.lastMessage}
+        onSelect={openTeacher}
         onOpenPalette={() => setPaletteOpen(true)}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         theme={theme}
@@ -154,22 +127,20 @@ export default function ChatApp() {
 
       <main className="flex min-w-0 flex-1 flex-col">
         <ChatHeader
-          conversation={chat.active}
+          teacher={active}
           sidebarOpen={sidebarOpen}
           model={model}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
-          onNew={newChat}
-          onTogglePin={pinChat}
-          onExport={exportChat}
-          onDelete={deleteChat}
+          onShowTeachers={() => openTeacher(null)}
+          onExport={exportCurrent}
+          onClear={clearConversation}
         />
 
-        {messages.length === 0 ? (
-          <EmptyState onSend={chat.send} onStop={stop} isStreaming={isStreaming} />
-        ) : (
+        {active ? (
           <>
             <MessageList
-              key={chat.activeId}
+              key={active.id}
+              teacher={active}
               messages={messages}
               isStreaming={isStreaming}
               onRegenerate={chat.regenerate}
@@ -177,9 +148,18 @@ export default function ChatApp() {
               onFeedback={chat.setFeedback}
             />
             <div className="mx-auto w-full max-w-4xl px-4 pb-3 md:px-6">
-              <Composer onSend={chat.send} onStop={stop} isStreaming={isStreaming} autoFocus />
+              <Composer
+                key={active.id}
+                onSend={chat.send}
+                onStop={stop}
+                isStreaming={isStreaming}
+                autoFocus
+                placeholder={`Message ${active.name}…`}
+              />
             </div>
           </>
+        ) : (
+          <TeacherDirectory teachers={teachers} lastMessage={chat.lastMessage} onSelect={openTeacher} />
         )}
       </main>
 

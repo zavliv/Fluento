@@ -286,6 +286,6 @@ function StatusLine({ error, state, live }: { error: string | null; state: strin
       ? live
         ? "Words appear as you speak. Press Enter when done, or Esc to cancel."
         : "Recording… press Enter to finish, or Esc to cancel."
-      : "Orbit AI can make mistakes. Check important results.";
+      : "Your teacher corrects your English as you go. AI can make mistakes.";
   return <p className="mt-2 text-center text-xs text-subtle">{message}</p>;
 }

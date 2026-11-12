@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 import groq
 
 from app.config import settings
-from app.prompts import SYSTEM_PROMPT
+from app.prompts import build_system_prompt
 from app.schemas import ChatMessage
 
 if settings.groq_api_key is None:
@@ -22,8 +22,8 @@ def error_message(exc: groq.GroqError) -> str:
     return "The model returned an error. Please try again."
 
 
-async def stream_reply(messages: list[ChatMessage]) -> AsyncIterator[dict]:
-    history = [{"role": "system", "content": SYSTEM_PROMPT}]
+async def stream_reply(messages: list[ChatMessage], system_prompt: str | None = None) -> AsyncIterator[dict]:
+    history = [{"role": "system", "content": build_system_prompt(system_prompt)}]
     history += [m.model_dump() for m in messages[-settings.history_limit :]]
 
     try:

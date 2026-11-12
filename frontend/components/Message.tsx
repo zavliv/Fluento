@@ -2,12 +2,13 @@
 
 import { Pencil, RefreshCw, ThumbsDown, ThumbsUp, TriangleAlert, Volume2, VolumeX } from "lucide-react";
 import { useState } from "react";
+import type { Teacher } from "@/lib/teachers";
 import type { Feedback, Message } from "@/lib/types";
 import { cn, messageText } from "@/lib/utils";
 import { CopyButton } from "./CopyButton";
 import { IconButton } from "./IconButton";
-import { LogoMark } from "./Logo";
 import { Markdown } from "./Markdown";
+import { TeacherAvatar } from "./TeacherAvatar";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { ToolCallCard } from "./ToolCallCard";
 
@@ -103,6 +104,7 @@ export function UserMessage({ message, animate, canEdit, onEdit }: UserProps) {
 }
 
 type AssistantProps = {
+  teacher: Teacher;
   message: Message;
   animate: boolean;
   isLast: boolean;
@@ -111,10 +113,11 @@ type AssistantProps = {
   canSpeak: boolean;
   onRegenerate: () => void;
   onFeedback: (id: string, feedback: Feedback | undefined) => void;
-  onReadAloud: (id: string, text: string) => void;
+  onReadAloud: (id: string, text: string, voice: Teacher["voice"]) => void;
 };
 
 export function AssistantMessage({
+  teacher,
   message,
   animate,
   isLast,
@@ -130,15 +133,22 @@ export function AssistantMessage({
   const lastPart = message.parts.at(-1);
   const waitingAfterTool = streaming && lastPart?.type === "tool" && lastPart.status !== "running";
 
+  const isGreeting = message.createdAt === 0;
+
   const toggleFeedback = (value: Feedback) => onFeedback(message.id, message.feedback === value ? undefined : value);
 
   return (
     <div className={cn("group", animate && "animate-in")}>
       <div className="min-w-0">
         <div className="mb-2 flex h-7 items-center gap-2.5">
-          <LogoMark size={26} className={cn(streaming && "logo-pulse")} />
-          <span className="text-sm font-semibold text-ink">Orbit AI</span>
-          <span className="text-xs text-subtle">{formatTime(message.createdAt)}</span>
+          <TeacherAvatar
+            name={teacher.name}
+            color={teacher.color}
+            size={26}
+            className={cn(streaming && "logo-pulse")}
+          />
+          <span className="text-sm font-semibold text-ink">{teacher.name}</span>
+          {!isGreeting && <span className="text-xs text-subtle">{formatTime(message.createdAt)}</span>}
         </div>
 
         {streaming && message.parts.length === 0 && <ThinkingIndicator />}
@@ -190,29 +200,33 @@ export function AssistantMessage({
               <IconButton
                 label={speaking ? "Stop reading" : "Read aloud"}
                 size="sm"
-                onClick={() => onReadAloud(message.id, text)}
+                onClick={() => onReadAloud(message.id, text, teacher.voice)}
                 className={cn(speaking && "bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent")}
               >
                 {speaking ? <VolumeX /> : <Volume2 />}
               </IconButton>
             )}
-            <IconButton
-              label="Good response"
-              size="sm"
-              onClick={() => toggleFeedback("up")}
-              className={cn(message.feedback === "up" && "text-accent hover:text-accent")}
-            >
-              <ThumbsUp className={cn(message.feedback === "up" && "fill-current")} />
-            </IconButton>
-            <IconButton
-              label="Bad response"
-              size="sm"
-              onClick={() => toggleFeedback("down")}
-              className={cn(message.feedback === "down" && "text-danger hover:text-danger")}
-            >
-              <ThumbsDown className={cn(message.feedback === "down" && "fill-current")} />
-            </IconButton>
-            {isLast && canRegenerate && (
+            {!isGreeting && (
+              <>
+                <IconButton
+                  label="Good response"
+                  size="sm"
+                  onClick={() => toggleFeedback("up")}
+                  className={cn(message.feedback === "up" && "text-accent hover:text-accent")}
+                >
+                  <ThumbsUp className={cn(message.feedback === "up" && "fill-current")} />
+                </IconButton>
+                <IconButton
+                  label="Bad response"
+                  size="sm"
+                  onClick={() => toggleFeedback("down")}
+                  className={cn(message.feedback === "down" && "text-danger hover:text-danger")}
+                >
+                  <ThumbsDown className={cn(message.feedback === "down" && "fill-current")} />
+                </IconButton>
+              </>
+            )}
+            {isLast && canRegenerate && !isGreeting && (
               <IconButton label="Regenerate" size="sm" onClick={onRegenerate}>
                 <RefreshCw />
               </IconButton>

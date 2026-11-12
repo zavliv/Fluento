@@ -3,11 +3,14 @@
 import { ArrowDown } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useReadAloud } from "@/hooks/useReadAloud";
+import type { Teacher } from "@/lib/teachers";
 import type { Feedback, Message } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AssistantMessage, UserMessage } from "./Message";
+import { TeacherAvatar } from "./TeacherAvatar";
 
 type Props = {
+  teacher: Teacher;
   messages: Message[];
   isStreaming: boolean;
   onRegenerate: () => void;
@@ -15,7 +18,7 @@ type Props = {
   onFeedback: (id: string, feedback: Feedback | undefined) => void;
 };
 
-export function MessageList({ messages, isStreaming, onRegenerate, onEdit, onFeedback }: Props) {
+export function MessageList({ teacher, messages, isStreaming, onRegenerate, onEdit, onFeedback }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const count = useRef(0);
@@ -54,6 +57,7 @@ export function MessageList({ messages, isStreaming, onRegenerate, onEdit, onFee
     <div className="relative min-h-0 flex-1">
       <div ref={ref} onScroll={onScroll} className="fade-edges h-full overflow-y-auto">
         <div className="fade-in mx-auto flex max-w-4xl flex-col gap-7 px-4 pt-8 pb-12 md:px-6">
+          <TeacherIntro teacher={teacher} />
           {messages.map((m) =>
             m.role === "user" ? (
               <UserMessage
@@ -66,6 +70,7 @@ export function MessageList({ messages, isStreaming, onRegenerate, onEdit, onFee
             ) : (
               <AssistantMessage
                 key={m.id}
+                teacher={teacher}
                 message={m}
                 animate={!initialIds.has(m.id)}
                 isLast={m.id === lastAssistantId}
@@ -93,6 +98,19 @@ export function MessageList({ messages, isStreaming, onRegenerate, onEdit, onFee
         <ArrowDown className="size-3.5" />
         {isStreaming ? "New reply" : "Latest"}
       </button>
+    </div>
+  );
+}
+
+function TeacherIntro({ teacher }: { teacher: Teacher }) {
+  return (
+    <div className="flex flex-col items-center border-b border-line pt-2 pb-7 text-center">
+      <TeacherAvatar name={teacher.name} color={teacher.color} size={64} />
+      <h2 className="mt-3 text-xl font-bold tracking-[-0.01em] text-ink">{teacher.name}</h2>
+      <p className="mt-0.5 text-sm font-medium" style={{ color: teacher.color }}>
+        {teacher.specialty} · {teacher.level}
+      </p>
+      <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">{teacher.personality}</p>
     </div>
   );
 }

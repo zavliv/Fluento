@@ -11,8 +11,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
     {
       title: "General",
       items: [
-        { label: "Search chats and commands", keys: [mod, "K"] },
-        { label: "New chat", keys: [mod, "⇧", "O"] },
+        { label: "Find a teacher or command", keys: [mod, "K"] },
         { label: "Toggle sidebar", keys: [mod, "B"] },
         { label: "Keyboard shortcuts", keys: [mod, "/"] },
       ],

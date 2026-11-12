@@ -1,27 +1,41 @@
 import { settleParts } from "./events";
-import type { Conversation } from "./types";
+import type { TeacherChats } from "./types";
 
-const KEY = "agent-chat:conversations";
+const CHATS_KEY = "orbit:teacher-chats";
+const ACTIVE_KEY = "orbit:active-teacher";
 
-export function loadConversations(): Conversation[] {
-  if (typeof window === "undefined") return [];
+export function loadTeacherChats(): TeacherChats {
+  if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const data = JSON.parse(raw) as Conversation[];
-    return data.map((c) => ({
-      ...c,
-      messages: c.messages.map((m) =>
-        m.status === "streaming" ? { ...m, status: "stopped", parts: settleParts(m.parts) } : m,
-      ),
-    }));
+    const data = JSON.parse(localStorage.getItem(CHATS_KEY) ?? "{}") as TeacherChats;
+    return Object.fromEntries(
+      Object.entries(data).map(([id, messages]) => [
+        id,
+        messages.map((m) => (m.status === "streaming" ? { ...m, status: "stopped", parts: settleParts(m.parts) } : m)),
+      ]),
+    );
   } catch {
-    return [];
+    return {};
   }
 }
 
-export function saveConversations(conversations: Conversation[]) {
+export function saveTeacherChats(chats: TeacherChats) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(conversations));
+    localStorage.setItem(CHATS_KEY, JSON.stringify(chats));
+  } catch {}
+}
+
+export function loadActiveTeacher(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveActiveTeacher(id: string | null) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_KEY, id);
+    else localStorage.removeItem(ACTIVE_KEY);
   } catch {}
 }

@@ -9,11 +9,16 @@ export function toApiMessages(messages: Message[]): ApiMessage[] {
   return messages.map((m) => ({ role: m.role, content: messageText(m) })).filter((m) => m.content.trim().length > 0);
 }
 
-export async function streamChat(messages: ApiMessage[], onEvent: (event: StreamEvent) => void, signal: AbortSignal) {
+export async function streamChat(
+  messages: ApiMessage[],
+  systemPrompt: string,
+  onEvent: (event: StreamEvent) => void,
+  signal: AbortSignal,
+) {
   const res = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, system_prompt: systemPrompt }),
     signal,
   });
   if (!res.ok || !res.body) throw new Error(`The backend responded with status ${res.status}.`);

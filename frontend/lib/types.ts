@@ -31,14 +31,7 @@ export type Message = {
   createdAt: number;
 };
 
-export type Conversation = {
-  id: string;
-  title: string;
-  messages: Message[];
-  pinned?: boolean;
-  createdAt: number;
-  updatedAt: number;
-};
+export type TeacherChats = Record<string, Message[]>;
 
 export type StreamEvent =
   | { type: "text"; text: string }

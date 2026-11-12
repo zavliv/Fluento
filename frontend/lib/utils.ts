@@ -1,5 +1,5 @@
 import { isValidElement, type ReactNode } from "react";
-import type { Conversation, Message, TextPart } from "./types";
+import type { Message, TextPart } from "./types";
 
 export function cn(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -7,11 +7,6 @@ export function cn(...classes: (string | false | null | undefined)[]) {
 
 export function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-}
-
-export function makeTitle(text: string) {
-  const clean = text.replace(/\s+/g, " ").trim();
-  return clean.length > 48 ? `${clean.slice(0, 48).trimEnd()}…` : clean;
 }
 
 export function messageText(message: Message) {
@@ -49,24 +44,13 @@ export function greeting() {
   return "Good evening.";
 }
 
-const DAY = 24 * 60 * 60 * 1000;
-
-export function groupConversations(conversations: Conversation[]) {
-  const startOfToday = new Date().setHours(0, 0, 0, 0);
-  const buckets: { label: string; test: (t: number) => boolean }[] = [
-    { label: "Today", test: (t) => t >= startOfToday },
-    { label: "Yesterday", test: (t) => t >= startOfToday - DAY },
-    { label: "Previous 7 days", test: (t) => t >= startOfToday - 7 * DAY },
-    { label: "Previous 30 days", test: (t) => t >= startOfToday - 30 * DAY },
-    { label: "Older", test: () => true },
-  ];
-  const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
-  const pinned = { label: "Pinned", items: sorted.filter((c) => c.pinned) };
-  const groups = buckets.map((b) => ({ label: b.label, items: [] as Conversation[] }));
-  for (const c of sorted) {
-    if (c.pinned) continue;
-    const i = buckets.findIndex((b) => b.test(c.updatedAt));
-    groups[i].items.push(c);
+export function shortTime(ts: number) {
+  const date = new Date(ts);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
-  return [pinned, ...groups].filter((g) => g.items.length > 0);
+  const days = (now.getTime() - ts) / (24 * 60 * 60 * 1000);
+  if (days < 7) return date.toLocaleDateString([], { weekday: "short" });
+  return date.toLocaleDateString([], { day: "numeric", month: "short" });
 }

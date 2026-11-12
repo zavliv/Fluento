@@ -1,49 +1,37 @@
 "use client";
 
 import {
-  Download,
-  LayoutDashboard,
-  Ellipsis,
   Keyboard,
+  LayoutDashboard,
+  LayoutGrid,
   Monitor,
   Moon,
   PanelLeft,
   PanelLeftClose,
-  Pencil,
-  Pin,
-  PinOff,
   Search,
-  SquarePen,
   Sun,
-  Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
 import type { Theme } from "@/hooks/useTheme";
 import { API_URL } from "@/lib/api";
-import type { Conversation } from "@/lib/types";
-import { cn, groupConversations, modKey, shortcut } from "@/lib/utils";
+import { toSpeakableText } from "@/lib/export";
+import type { Teacher } from "@/lib/teachers";
+import type { Message } from "@/lib/types";
+import { cn, messageText, shortcut, shortTime } from "@/lib/utils";
 import { IconButton } from "./IconButton";
 import { LogoMark } from "./Logo";
+import { TeacherAvatar } from "./TeacherAvatar";
 import { Wordmark } from "./Wordmark";
-import { Menu } from "./ui/Menu";
 
-type ConversationActions = {
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onRename: (id: string, title: string) => void;
-  onTogglePin: (id: string) => void;
-  onExport: (id: string) => void;
-};
-
-type Props = ConversationActions & {
+type Props = {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
-  conversations: Conversation[];
+  teachers: Teacher[];
   activeId: string | null;
-  streamingConversationId: string | null;
-  onNew: () => void;
+  streamingTeacherId: string | null;
+  lastMessage: (teacherId: string) => Message | null;
+  onSelect: (teacherId: string | null) => void;
   onOpenPalette: () => void;
   onOpenShortcuts: () => void;
   theme: Theme;
@@ -55,10 +43,7 @@ const SIDEBAR_BUTTON =
   "flex h-10 items-center rounded-xl border border-line bg-surface text-sm shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-all hover:border-accent/40 hover:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.08)]";
 
 export function Sidebar(props: Props) {
-  const { open, onClose, conversations, activeId, onNew } = props;
-  const mod = modKey();
-
-  const groups = useMemo(() => groupConversations(conversations), [conversations]);
+  const { open, onClose, teachers, activeId, onSelect } = props;
 
   return (
     <>
@@ -71,7 +56,7 @@ export function Sidebar(props: Props) {
         )}
       />
       <aside
-        aria-label="Conversations"
+        aria-label="Teachers"
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-[276px] shrink-0 flex-col border-r border-line bg-sidebar",
           "transition-[transform,margin] duration-300 ease-[cubic-bezier(.2,.7,.2,1)] md:relative md:z-auto",
@@ -88,22 +73,21 @@ export function Sidebar(props: Props) {
         <div className="flex items-center gap-2 px-3 pt-3">
           <button
             type="button"
-            onClick={onNew}
-            className={cn(SIDEBAR_BUTTON, "group/new min-w-0 flex-1 gap-2.5 px-3 font-medium text-ink")}
+            onClick={() => onSelect(null)}
+            className={cn(
+              SIDEBAR_BUTTON,
+              "min-w-0 flex-1 gap-2.5 px-3 font-medium text-ink",
+              activeId === null && "border-accent/40",
+            )}
           >
-            <SquarePen className="size-4 text-accent" />
-            New chat
-            <span className="ml-auto hidden gap-0.5 opacity-0 transition-opacity group-hover/new:opacity-100 md:flex">
-              <kbd className="kbd">{mod}</kbd>
-              <kbd className="kbd">⇧</kbd>
-              <kbd className="kbd">O</kbd>
-            </span>
+            <LayoutGrid className="size-4 text-accent" />
+            All teachers
           </button>
           <button
             type="button"
             onClick={props.onOpenPalette}
-            aria-label="Search chats"
-            data-tip={`Search chats (${shortcut("K")})`}
+            aria-label="Find a teacher"
+            data-tip={`Find a teacher (${shortcut("K")})`}
             className={cn(SIDEBAR_BUTTON, "tip tip-bottom w-10 shrink-0 justify-center text-muted hover:text-ink")}
           >
             <Search className="size-4" />
@@ -111,34 +95,48 @@ export function Sidebar(props: Props) {
         </div>
 
         <nav className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          {groups.length === 0 ? (
-            <EmptyList />
-          ) : (
-            groups.map((group) => (
-              <div key={group.label} className="mb-3">
-                <p className="flex items-center gap-1.5 px-2.5 pt-2 pb-1.5 text-[11px] font-medium tracking-wider text-subtle uppercase">
-                  {group.label === "Pinned" && <Pin className="size-3" />}
-                  {group.label}
-                </p>
-                <ul className="space-y-px">
-                  {group.items.map((c) => (
-                    <li key={c.id}>
-                      <ConversationItem
-                        conversation={c}
-                        active={c.id === activeId}
-                        busy={c.id === props.streamingConversationId}
-                        onSelect={props.onSelect}
-                        onDelete={props.onDelete}
-                        onRename={props.onRename}
-                        onTogglePin={props.onTogglePin}
-                        onExport={props.onExport}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          )}
+          <p className="px-2.5 pt-2 pb-1.5 text-[11px] font-medium tracking-wider text-subtle uppercase">
+            Your teachers
+          </p>
+          <ul className="space-y-0.5">
+            {teachers.map((teacher) => {
+              const last = props.lastMessage(teacher.id);
+              const active = teacher.id === activeId;
+              const preview = last
+                ? `${last.role === "user" ? "You: " : ""}${toSpeakableText(messageText(last))}`
+                : teacher.specialty;
+              return (
+                <li key={teacher.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(teacher.id)}
+                    className={cn(
+                      "relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors",
+                      active ? "bg-hover" : "hover:bg-hover/70",
+                    )}
+                  >
+                    {active && <span className="absolute top-2.5 bottom-2.5 left-0 w-[3px] rounded-full bg-accent" />}
+                    <TeacherAvatar name={teacher.name} color={teacher.color} size={36} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className={cn("truncate text-sm text-ink", active ? "font-semibold" : "font-medium")}>
+                          {teacher.name}
+                        </span>
+                        {last && <span className="shrink-0 text-[11px] text-subtle">{shortTime(last.createdAt)}</span>}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1.5">
+                        {props.streamingTeacherId === teacher.id ? (
+                          <span className="shimmer-text truncate text-xs font-medium">typing…</span>
+                        ) : (
+                          <span className="truncate text-xs text-muted">{preview}</span>
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
 
         <footer className="space-y-3 border-t border-line p-3">
@@ -167,26 +165,61 @@ export function Sidebar(props: Props) {
   );
 }
 
-function Rail({ onOpen, onNew, onOpenPalette, onOpenShortcuts, online, theme, onThemeChange }: Props) {
+function Rail({
+  onOpen,
+  onSelect,
+  onOpenPalette,
+  teachers,
+  activeId,
+  online,
+  theme,
+  onThemeChange,
+  onOpenShortcuts,
+}: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
   return (
-    <aside className="hidden w-[60px] shrink-0 flex-col items-center gap-1 border-r border-line bg-sidebar py-3 md:flex">
+    <aside className="hidden w-[64px] shrink-0 flex-col items-center gap-1 border-r border-line bg-sidebar py-3 md:flex">
       <button type="button" onClick={onOpen} aria-label="Open sidebar" className="mb-2">
         <LogoMark size={36} />
       </button>
       <IconButton label={`Open sidebar (${shortcut("B")})`} tooltip="right" onClick={onOpen} className="size-9">
         <PanelLeft />
       </IconButton>
-      <IconButton label={`New chat (${shortcut("⇧", "O")})`} tooltip="right" onClick={onNew} className="size-9">
-        <SquarePen />
+      <IconButton label="All teachers" tooltip="right" onClick={() => onSelect(null)} className="size-9">
+        <LayoutGrid />
       </IconButton>
-      <IconButton label={`Search (${shortcut("K")})`} tooltip="right" onClick={onOpenPalette} className="size-9">
+      <IconButton
+        label={`Find a teacher (${shortcut("K")})`}
+        tooltip="right"
+        onClick={onOpenPalette}
+        className="size-9"
+      >
         <Search />
       </IconButton>
 
-      <div className="mt-auto flex flex-col items-center gap-1">
+      <div className="my-2 h-px w-8 bg-line" />
+
+      <div className="flex min-h-0 flex-col items-center gap-1.5 overflow-y-auto">
+        {teachers.map((teacher) => (
+          <button
+            key={teacher.id}
+            type="button"
+            onClick={() => onSelect(teacher.id)}
+            aria-label={teacher.name}
+            data-tip={`${teacher.name} · ${teacher.specialty}`}
+            className={cn(
+              "tip tip-right rounded-[30%] p-0.5 transition-all",
+              teacher.id === activeId ? "ring-2 ring-accent" : "opacity-80 hover:opacity-100",
+            )}
+          >
+            <TeacherAvatar name={teacher.name} color={teacher.color} size={34} />
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-auto flex flex-col items-center gap-1 pt-2">
         <IconButton label="Keyboard shortcuts" tooltip="right" onClick={onOpenShortcuts} className="size-9">
           <Keyboard />
         </IconButton>
@@ -206,111 +239,6 @@ function Rail({ onOpen, onNew, onOpenPalette, onOpenShortcuts, online, theme, on
         </span>
       </div>
     </aside>
-  );
-}
-
-function EmptyList() {
-  return (
-    <div className="flex flex-col items-center px-4 py-10 text-center">
-      <span className="mb-3 flex size-10 items-center justify-center rounded-xl bg-hover text-subtle">
-        <SquarePen className="size-4" />
-      </span>
-      <p className="text-sm font-medium text-ink">No chats yet</p>
-      <p className="mt-1 text-xs text-subtle">Start a conversation and it&apos;ll show up here.</p>
-    </div>
-  );
-}
-
-type ItemProps = ConversationActions & {
-  conversation: Conversation;
-  active: boolean;
-  busy: boolean;
-};
-
-function ConversationItem({ conversation, active, busy, ...actions }: ItemProps) {
-  const [renaming, setRenaming] = useState(false);
-  const [draft, setDraft] = useState(conversation.title);
-
-  const commit = (e?: FormEvent) => {
-    e?.preventDefault();
-    actions.onRename(conversation.id, draft.trim() || conversation.title);
-    setRenaming(false);
-  };
-
-  if (renaming) {
-    return (
-      <form onSubmit={commit} className="px-0.5 py-0.5">
-        <input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => commit()}
-          onKeyDown={(e) => e.key === "Escape" && setRenaming(false)}
-          className="w-full rounded-lg border border-accent/50 bg-surface px-2.5 py-1.5 text-sm text-ink outline-none"
-        />
-      </form>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        "group/item relative flex items-center rounded-lg transition-colors",
-        active ? "bg-hover" : "hover:bg-hover/70",
-      )}
-    >
-      {active && <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded-full bg-accent" />}
-      <button
-        type="button"
-        onClick={() => actions.onSelect(conversation.id)}
-        onDoubleClick={() => {
-          setDraft(conversation.title);
-          setRenaming(true);
-        }}
-        className={cn(
-          "flex min-w-0 flex-1 items-center gap-2 py-2 pr-1 pl-3 text-left text-sm",
-          active ? "font-medium text-ink" : "text-muted group-hover/item:text-ink",
-        )}
-      >
-        <span className="truncate">{conversation.title}</span>
-        {busy && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
-      </button>
-      <Menu
-        items={[
-          {
-            label: conversation.pinned ? "Unpin" : "Pin to top",
-            icon: conversation.pinned ? <PinOff /> : <Pin />,
-            onSelect: () => actions.onTogglePin(conversation.id),
-          },
-          {
-            label: "Rename",
-            icon: <Pencil />,
-            onSelect: () => {
-              setDraft(conversation.title);
-              setRenaming(true);
-            },
-          },
-          { label: "Export as Markdown", icon: <Download />, onSelect: () => actions.onExport(conversation.id) },
-          { label: "Delete", icon: <Trash2 />, danger: true, onSelect: () => actions.onDelete(conversation.id) },
-        ]}
-        trigger={({ open, toggle, ref }) => (
-          <button
-            ref={ref}
-            type="button"
-            onClick={toggle}
-            aria-label="Chat options"
-            title="Chat options"
-            className={cn(
-              "mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-subtle transition-colors hover:bg-line/70 hover:text-ink",
-              open || active ? "flex" : "hidden group-hover/item:flex",
-              open && "bg-line/70 text-ink",
-            )}
-          >
-            <Ellipsis className="size-4" />
-          </button>
-        )}
-      />
-    </div>
   );
 }
 

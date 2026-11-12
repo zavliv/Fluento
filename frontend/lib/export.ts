@@ -1,27 +1,17 @@
-import type { Conversation } from "./types";
+import type { Message } from "./types";
 import { messageText } from "./utils";
 
-export function conversationToMarkdown(conversation: Conversation) {
-  const lines = [`# ${conversation.title}`, ""];
-  for (const message of conversation.messages) {
+export function exportConversation(teacherName: string, messages: Message[]) {
+  const lines = [`# Conversation with ${teacherName}`, ""];
+  for (const message of messages) {
     const text = messageText(message).trim();
-    if (!text) continue;
-    lines.push(`### ${message.role === "user" ? "You" : "Orbit AI"}`, "", text, "");
+    if (text) lines.push(`### ${message.role === "user" ? "You" : teacherName}`, "", text, "");
   }
-  return lines.join("\n");
-}
-
-export function exportConversation(conversation: Conversation) {
-  const slug =
-    conversation.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "chat";
-  const blob = new Blob([conversationToMarkdown(conversation)], { type: "text/markdown" });
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${slug}.md`;
+  link.download = `orbit-${teacherName.toLowerCase()}.md`;
   link.click();
   URL.revokeObjectURL(url);
 }

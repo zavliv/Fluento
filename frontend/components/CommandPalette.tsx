@@ -8,7 +8,7 @@ import { Dialog } from "./ui/Dialog";
 export type Command = {
   id: string;
   label: string;
-  group: "Actions" | "Chats";
+  group: "Actions" | "Teachers";
   icon: ReactNode;
   hint?: string;
   run: () => void;
@@ -35,9 +35,9 @@ function PaletteBody({ commands, onClose }: { commands: Command[]; onClose: () =
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matches = q ? commands.filter((c) => c.label.toLowerCase().includes(q)) : commands;
+    const teachers = matches.filter((c) => c.group === "Teachers");
     const actions = matches.filter((c) => c.group === "Actions");
-    const chats = matches.filter((c) => c.group === "Chats").slice(0, q ? 20 : 8);
-    return [...actions, ...chats];
+    return [...teachers, ...actions];
   }, [commands, query]);
 
   const active = Math.min(index, Math.max(results.length - 1, 0));
@@ -72,7 +72,7 @@ function PaletteBody({ commands, onClose }: { commands: Command[]; onClose: () =
             setQuery(e.target.value);
             setIndex(0);
           }}
-          placeholder="Search chats or run a command…"
+          placeholder="Find a teacher or run a command…"
           className="h-14 w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-subtle"
         />
         <kbd className="kbd">Esc</kbd>

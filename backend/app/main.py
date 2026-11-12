@@ -33,7 +33,7 @@ def health():
 @app.post("/chat")
 async def chat(request: ChatRequest):
     return StreamingResponse(
-        to_sse(stream_reply(request.messages)),
+        to_sse(stream_reply(request.messages, request.system_prompt)),
         media_type="text/event-stream",
     )
 
