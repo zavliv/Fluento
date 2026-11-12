@@ -1,4 +1,11 @@
-from app.agents.rules import conversation, corrections, formatting, identity, language, safety
+from app.agents.rules import (
+    conversation,
+    corrections,
+    formatting,
+    identity,
+    language,
+    safety,
+)
 
 SECTIONS = [identity, conversation, corrections, language, formatting, safety]
 

@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     stt_max_bytes: int = 25 * 1024 * 1024
 
     history_limit: int = 40
-
     cors_origins: list[str] = ["http://localhost:3000"]
 
 

@@ -48,7 +48,9 @@ def list_teachers() -> list[TeacherSummary]:
 async def chat(request: ChatRequest):
     teacher = get_teacher(request.teacher_id)
     if teacher is None:
-        raise HTTPException(status_code=404, detail=f"Unknown teacher: {request.teacher_id}")
+        raise HTTPException(
+            status_code=404, detail=f"Unknown teacher: {request.teacher_id}"
+        )
     return StreamingResponse(
         to_sse(teacher.reply(request.messages)),
         media_type="text/event-stream",

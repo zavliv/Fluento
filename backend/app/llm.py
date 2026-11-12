@@ -33,7 +33,9 @@ async def stream_completion(
         stream = await client.chat.completions.create(
             model=settings.llm_model,
             messages=history,
-            temperature=settings.llm_temperature if temperature is None else temperature,
+            temperature=(
+                settings.llm_temperature if temperature is None else temperature
+            ),
             max_completion_tokens=settings.llm_max_tokens,
             stream=True,
         )
