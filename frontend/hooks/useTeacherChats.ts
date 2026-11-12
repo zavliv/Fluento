@@ -26,18 +26,6 @@ const NO_MESSAGES: Message[] = [];
 export function useTeacherChats() {
   const teachers = useMemo(() => TEACHERS.filter((t) => t.enabled), []);
   const [chats, setChats] = useState<TeacherChats>(loadTeacherChats);
-  const [activeId, setActiveId] = useState<string | null>(() => {
-    const saved = loadActiveTeacher();
-    return saved && teachers.some((t) => t.id === saved) ? saved : null;
-  });
-  const [streaming, setStreaming] = useState<{ teacherId: string; messageId: string } | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => saveTeacherChats(chats), streaming ? 800 : 0);
-    return () => clearTimeout(timer);
-  }, [chats, streaming]);
-
   const [myTeacherIds, setMyTeacherIds] = useState<string[]>(() => {
     const saved = loadMyTeachers();
     if (saved) return saved;
@@ -46,6 +34,18 @@ export function useTeacherChats() {
       .filter((id) => chats[id].length > 0)
       .sort((a, b) => lastActivity(b) - lastActivity(a));
   });
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    const saved = loadActiveTeacher();
+    const valid = saved && myTeacherIds.includes(saved) && teachers.some((t) => t.id === saved);
+    return valid ? saved : null;
+  });
+  const [streaming, setStreaming] = useState<{ teacherId: string; messageId: string } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => saveTeacherChats(chats), streaming ? 800 : 0);
+    return () => clearTimeout(timer);
+  }, [chats, streaming]);
 
   useEffect(() => saveActiveTeacher(activeId), [activeId]);
   useEffect(() => saveMyTeachers(myTeacherIds), [myTeacherIds]);
