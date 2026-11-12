@@ -13,6 +13,7 @@ logger = logging.getLogger("fluento")
 
 async def setup_database() -> None:
     await ensure_indexes()
+    await db.teachers.update_many({"online": {"$exists": False}}, {"$set": {"online": True}})
 
     if await db.teachers.count_documents({}) == 0:
         await db.teachers.insert_many(

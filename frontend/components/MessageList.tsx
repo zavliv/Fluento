@@ -137,7 +137,7 @@ function TeacherIntro({ teacher, online, empty, onSend }: IntroProps) {
         color={teacher.color}
         size={72}
         className="relative"
-        presence={online === null ? null : online ? "online" : "offline"}
+        presence={online === null ? null : online && teacher.online ? "online" : "offline"}
       />
       <h2 className="relative mt-4 text-2xl font-bold tracking-[-0.02em] text-ink">{teacher.name}</h2>
       <p className="relative mt-1 text-sm font-semibold text-accent">
@@ -145,8 +145,14 @@ function TeacherIntro({ teacher, online, empty, onSend }: IntroProps) {
       </p>
       {online !== null && (
         <p className="relative mt-2.5 text-xs font-medium">
-          <PresenceStatus online={online} />
-          <span className="text-subtle">{online ? " · Ready to chat" : " · Check that the backend is running"}</span>
+          <PresenceStatus online={online && teacher.online} />
+          <span className="text-subtle">
+            {!online
+              ? " · Check that the backend is running"
+              : teacher.online
+                ? " · Ready to chat"
+                : ` · Messages are delivered when ${teacher.name} is back`}
+          </span>
         </p>
       )}
       <p className="relative mt-3 max-w-md text-sm leading-relaxed text-muted">{teacher.description}</p>

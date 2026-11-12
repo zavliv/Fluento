@@ -29,7 +29,9 @@ function toHistory(messages: Message[]) {
   return messages.filter((m) => messageText(m).trim()).map(toStoredMessage);
 }
 
-export function useTeacherChats(teachers: Teacher[], signedIn: boolean) {
+const POLL_MS = 4000;
+
+export function useTeacherChats(teachers: Teacher[], signedIn: boolean, onQueuedReply?: () => void) {
   const [chats, setChats] = useState<TeacherChats>({});
   const [summaries, setSummaries] = useState<Record<string, Message>>({});
   const [myTeacherIds, setMyTeacherIds] = useState<string[]>([]);
@@ -140,7 +142,18 @@ export function useTeacherChats(teachers: Teacher[], signedIn: boolean) {
         teacher.id,
         toHistory(history),
         assistant.id,
-        (event) => patch((m) => applyEvent(m, event)),
+        (event) => {
+          if (event.type === "read") {
+            setChats((c) => ({
+              ...c,
+              [teacher.id]: (c[teacher.id] ?? []).map((m) => (m.role === "user" ? { ...m, receipt: "read" } : m)),
+            }));
+          } else if (event.type === "queued") {
+            setChats((c) => ({ ...c, [teacher.id]: (c[teacher.id] ?? []).filter((m) => m.id !== assistant.id) }));
+          } else {
+            patch((m) => applyEvent(m, event));
+          }
+        },
         controller.signal,
       );
       patch((m) => (m.status === "streaming" ? { ...m, status: "done", parts: settleParts(m.parts) } : m));
@@ -159,6 +172,24 @@ export function useTeacherChats(teachers: Teacher[], signedIn: boolean) {
     }
   }, []);
 
+  const waiting = Boolean(active && !streaming && messages.length > 0 && messages[messages.length - 1].role === "user");
+  useEffect(() => {
+    if (!active || !waiting) return;
+    const teacherId = active.id;
+    const timer = window.setInterval(() => {
+      api
+        .conversation(teacherId)
+        .then((stored) => {
+          const last = stored[stored.length - 1];
+          if (last?.role !== "assistant") return;
+          setChats((c) => ({ ...c, [teacherId]: stored.map(fromStoredMessage) }));
+          onQueuedReply?.();
+        })
+        .catch(() => {});
+    }, POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [active, waiting, onQueuedReply]);
+
   const send = useCallback(
     (text: string) => {
       const content = text.trim();
@@ -168,6 +199,7 @@ export function useTeacherChats(teachers: Teacher[], signedIn: boolean) {
         role: "user",
         parts: [{ type: "text", text: content }],
         status: "done",
+        receipt: "sent",
         createdAt: Date.now(),
       };
       void runAssistant(active, [...messages, userMessage]);

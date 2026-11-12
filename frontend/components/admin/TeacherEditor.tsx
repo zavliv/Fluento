@@ -37,6 +37,7 @@ const BLANK: AdminTeacher = {
   voice: "female",
   color: "#0d9488",
   enabled: true,
+  online: true,
   order: 0,
   starters: [],
   tags: [],
@@ -276,6 +277,16 @@ function EditorForm({ initial, isNew }: { initial: AdminTeacher; isNew: boolean 
               <Field label="Order" hint="Lower numbers appear first.">
                 <Input type="number" value={draft.order} onChange={(e) => set("order", Number(e.target.value))} />
               </Field>
+              <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3 sm:col-span-2">
+                <div>
+                  <p className="text-sm font-semibold text-ink">Online</p>
+                  <p className="text-xs text-muted">
+                    When offline, learners still see this teacher, and their messages wait with a single tick until the
+                    teacher is back online and replies.
+                  </p>
+                </div>
+                <Switch checked={draft.online} onChange={(v) => set("online", v)} label="Online" />
+              </div>
               <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3 sm:col-span-2">
                 <div>
                   <p className="text-sm font-semibold text-ink">Visible to learners</p>

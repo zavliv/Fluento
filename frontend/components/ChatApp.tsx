@@ -30,8 +30,8 @@ const isMobile = () => window.innerWidth < 768;
 
 export default function ChatApp() {
   const { user, loading: authLoading, logout } = useAuth();
-  const { teachers, loading: teachersLoading } = useTeachers();
-  const chat = useTeacherChats(teachers, Boolean(user));
+  const { teachers, loading: teachersLoading, reload: reloadTeachers } = useTeachers();
+  const chat = useTeacherChats(teachers, Boolean(user), reloadTeachers);
   const router = useRouter();
   const params = useSearchParams();
   const { theme, setTheme } = useTheme();
@@ -241,7 +241,7 @@ export default function ChatApp() {
       <main className="flex min-w-0 flex-1 flex-col" style={active ? teacherTheme(active.color) : undefined}>
         <ChatHeader
           teacher={active}
-          online={online}
+          online={online === null || !active ? online : online && active.online}
           typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
@@ -274,6 +274,13 @@ export default function ChatApp() {
               onFeedback={chat.setFeedback}
             />
             <div className="mx-auto w-full max-w-4xl px-4 pb-3 md:px-6">
+              {!active.online && (
+                <p className="mb-2 flex items-center justify-center gap-2 text-center text-xs text-muted">
+                  <span className="size-1.5 rounded-full bg-subtle" aria-hidden />
+                  {active.name} is offline. Your messages will be delivered, and {active.name} will reply when back
+                  online.
+                </p>
+              )}
               <Composer
                 key={active.id}
                 onSend={chat.send}

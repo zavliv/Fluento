@@ -1,6 +1,16 @@
 "use client";
 
-import { Pencil, RefreshCw, ThumbsDown, ThumbsUp, TriangleAlert, Volume2, VolumeX } from "lucide-react";
+import {
+  Check,
+  CheckCheck,
+  Pencil,
+  RefreshCw,
+  ThumbsDown,
+  ThumbsUp,
+  TriangleAlert,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useState } from "react";
 import type { Teacher } from "@/lib/teachers";
 import type { Feedback, Message } from "@/lib/types";
@@ -83,23 +93,40 @@ export function UserMessage({ message, animate, canEdit, onEdit }: UserProps) {
       <div className="max-w-[80%] rounded-2xl rounded-br-md border border-line/60 bg-bubble px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap text-ink">
         {text}
       </div>
-      <div className="mt-1 flex items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
-        <span className="mr-1 text-xs text-subtle">{formatTime(message.createdAt)}</span>
-        <CopyButton text={text} />
-        {canEdit && (
-          <IconButton
-            label="Edit"
-            size="sm"
-            onClick={() => {
-              setDraft(text);
-              setEditing(true);
-            }}
-          >
-            <Pencil />
-          </IconButton>
-        )}
+      <div className="mt-1 flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+          <CopyButton text={text} />
+          {canEdit && (
+            <IconButton
+              label="Edit"
+              size="sm"
+              onClick={() => {
+                setDraft(text);
+                setEditing(true);
+              }}
+            >
+              <Pencil />
+            </IconButton>
+          )}
+        </div>
+        <span className="ml-1 text-xs text-subtle">{formatTime(message.createdAt)}</span>
+        {message.receipt && <Receipt read={message.receipt === "read"} />}
       </div>
     </div>
+  );
+}
+
+function Receipt({ read }: { read: boolean }) {
+  const Icon = read ? CheckCheck : Check;
+  return (
+    <span
+      role="img"
+      aria-label={read ? "Read" : "Sent"}
+      title={read ? "Read" : "Sent, waiting for the teacher"}
+      className={cn("ml-1 flex", read ? "text-accent" : "text-subtle")}
+    >
+      <Icon className="size-3.5" strokeWidth={2.4} />
+    </span>
   );
 }
 

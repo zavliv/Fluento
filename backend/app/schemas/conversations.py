@@ -10,6 +10,7 @@ class StoredMessage(BaseModel):
     content: str
     created_at: int
     feedback: Literal["up", "down"] | None = None
+    receipt: Literal["sent", "read"] | None = None
 
 
 class ChatRequest(BaseModel):

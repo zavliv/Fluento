@@ -24,6 +24,7 @@ export type StoredMessage = {
   content: string;
   created_at: number;
   feedback?: "up" | "down" | null;
+  receipt?: "sent" | "read" | null;
 };
 
 export type ConversationSummary = { teacher_id: string; last_message: StoredMessage | null; updated_at: string };
@@ -244,7 +245,14 @@ export const api = {
 };
 
 export function toStoredMessage(m: Message): StoredMessage {
-  return { id: m.id, role: m.role, content: messageText(m), created_at: m.createdAt, feedback: m.feedback ?? null };
+  return {
+    id: m.id,
+    role: m.role,
+    content: messageText(m),
+    created_at: m.createdAt,
+    feedback: m.feedback ?? null,
+    receipt: m.receipt ?? null,
+  };
 }
 
 export function fromStoredMessage(m: StoredMessage): Message {
@@ -255,6 +263,7 @@ export function fromStoredMessage(m: StoredMessage): Message {
     status: "done",
     createdAt: m.created_at,
     feedback: m.feedback ?? undefined,
+    receipt: m.receipt ?? undefined,
   };
 }
 

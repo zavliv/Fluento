@@ -9,11 +9,19 @@ export function ConversationPreview({ teacher }: { teacher: Teacher }) {
       className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-36px_rgb(0_0_0/0.45)]"
     >
       <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-        <TeacherAvatar name={teacher.name} color={teacher.color} size={32} presence="online" ring="var(--surface)" />
+        <TeacherAvatar
+          name={teacher.name}
+          color={teacher.color}
+          size={32}
+          presence={teacher.online ? "online" : "offline"}
+          ring="var(--surface)"
+        />
         <div className="leading-tight">
           <p className="text-sm font-semibold text-ink">{teacher.name}</p>
           <p className="text-xs">
-            <span className="font-medium text-success">Online</span>
+            <span className={teacher.online ? "font-medium text-success" : "font-medium text-subtle"}>
+              {teacher.online ? "Online" : "Offline"}
+            </span>
             <span className="text-subtle"> · {teacher.specialty}</span>
           </p>
         </div>

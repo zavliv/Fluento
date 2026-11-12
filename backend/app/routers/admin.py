@@ -23,6 +23,8 @@ from app.schemas.rules import RuleSection, RuleSectionCreate, RuleSectionFields,
 from app.schemas.settings import AppSettings
 from app.schemas.teachers import TeacherAdmin, TeacherCreate, TeacherFields, teacher_admin
 from app.security import current_admin
+from app.services.pending import answer_pending
+from app.services.tasks import run_in_background
 from app.services.app_settings import SETTINGS_ID, clear_settings_cache, get_app_settings
 from app.services.memory import get_memory
 
@@ -148,6 +150,8 @@ async def update_teacher(teacher_id: str, body: TeacherFields) -> TeacherAdmin:
     )
     if doc is None:
         raise HTTPException(status_code=404, detail="Teacher not found.")
+    if doc.get("online") and doc.get("enabled"):
+        run_in_background(answer_pending(teacher_id))
     return teacher_admin(doc)
 
 

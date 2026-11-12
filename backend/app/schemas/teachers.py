@@ -31,6 +31,7 @@ class TeacherFields(BaseModel):
     voice: Voice = "female"
     color: str = Field(default="#0d9488", pattern=r"^#[0-9a-fA-F]{6}$")
     enabled: bool = True
+    online: bool = True
     order: int = 0
     starters: list[str] = []
     tags: list[str] = []
@@ -55,6 +56,7 @@ class TeacherPublic(BaseModel):
     starters: list[str]
     tags: list[str]
     goals: list[Goal]
+    online: bool
     languages: list[str]
 
 

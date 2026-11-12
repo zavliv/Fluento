@@ -166,7 +166,9 @@ export function Sidebar(props: Props) {
                           color={teacher.color}
                           size={36}
                           ring={active ? "var(--hover)" : "var(--sidebar)"}
-                          presence={props.online === null ? null : props.online ? "online" : "offline"}
+                          presence={
+                            props.online === null ? null : props.online && teacher.online ? "online" : "offline"
+                          }
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-baseline justify-between gap-2">

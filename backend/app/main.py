@@ -8,6 +8,8 @@ from app.config import settings
 from app.db import client
 from app.routers import admin, admin_auth, admin_team, auth, chat, me, mistakes, public
 from app.seed.setup import setup_database
+from app.services.pending import answer_all_pending
+from app.services.tasks import run_in_background
 
 logging.basicConfig(level=logging.INFO)
 
@@ -15,6 +17,7 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await setup_database()
+    run_in_background(answer_all_pending())
     yield
     await client.close()
 

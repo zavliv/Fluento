@@ -21,6 +21,8 @@ export type Feedback = "up" | "down";
 
 export type MessageStatus = "streaming" | "done" | "error" | "stopped";
 
+export type Receipt = "sent" | "read";
+
 export type Message = {
   id: string;
   role: Role;
@@ -28,6 +30,7 @@ export type Message = {
   status: MessageStatus;
   error?: string;
   feedback?: Feedback;
+  receipt?: Receipt;
   createdAt: number;
 };
 
@@ -38,4 +41,6 @@ export type StreamEvent =
   | { type: "tool_call"; id: string; name: string; input: unknown }
   | { type: "tool_result"; id: string; output: string; is_error?: boolean }
   | { type: "error"; message: string }
+  | { type: "read" }
+  | { type: "queued" }
   | { type: "done" };

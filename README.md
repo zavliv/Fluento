@@ -9,7 +9,8 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 - Seven English teachers, each with their own personality, specialty and voice: Maya, Arjun, Emma, Leo, Sophia, Riya and James
 - Browse teachers by goal (speaking, grammar, vocabulary, exams, work, beginners) and pick one to talk to
 - Teachers you pick appear in your sidebar under My teachers; each keeps one ongoing conversation
-- Teachers show as online, with a typing indicator while they reply
+- Teachers can be switched online or offline from the admin. Messages to an offline teacher wait with a single tick and are answered automatically when the teacher is back online; read messages show a double tick
+- A typing indicator while a teacher replies
 - Each conversation takes on the teacher's own color, with tap-to-send conversation starters
 - Teachers correct your English as you go and keep the conversation flowing
 - Voice input that writes your words as you speak, and read-aloud replies in the teacher's voice

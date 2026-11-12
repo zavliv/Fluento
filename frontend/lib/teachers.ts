@@ -30,6 +30,7 @@ export type Teacher = {
   tags: string[];
   goals: TeacherGoal[];
   languages: string[];
+  online: boolean;
 };
 
 export type Persona = {

@@ -22,11 +22,15 @@ export function TeachersList() {
   const load = useCallback(() => api.admin.teachers(), []);
   const { data: teachers, loading, error, reload, setData } = useLoad(load);
 
-  const toggle = async (teacher: AdminTeacher, enabled: boolean) => {
-    setData((list) => list?.map((t) => (t.id === teacher.id ? { ...t, enabled } : t)) ?? null);
+  const toggle = async (teacher: AdminTeacher, online: boolean) => {
+    setData((list) => list?.map((t) => (t.id === teacher.id ? { ...t, online } : t)) ?? null);
     try {
-      await api.admin.updateTeacher(teacher.id, { ...editable(teacher), enabled });
-      toast({ message: `${teacher.name} is now ${enabled ? "visible to learners" : "hidden"}` });
+      await api.admin.updateTeacher(teacher.id, { ...editable(teacher), online });
+      toast({
+        message: online
+          ? `${teacher.name} is online and will answer any waiting messages`
+          : `${teacher.name} is offline. Learners' messages will wait with a single tick`,
+      });
     } catch (err) {
       setData((list) => list?.map((t) => (t.id === teacher.id ? teacher : t)) ?? null);
       toast({ message: err instanceof Error ? err.message : "Couldn't update teacher" });
@@ -71,6 +75,11 @@ export function TeachersList() {
                 <div className="flex items-center gap-2">
                   <p className="text-[15px] font-semibold text-ink">{t.name}</p>
                   <span className="font-mono text-xs text-subtle">{t.id}</span>
+                  {!t.enabled && (
+                    <span className="rounded-full border border-line px-2 py-0.5 text-[11px] font-semibold text-muted">
+                      Hidden
+                    </span>
+                  )}
                 </div>
                 <p className="truncate text-sm" style={{ color: t.color }}>
                   {t.specialty}
@@ -80,12 +89,11 @@ export function TeachersList() {
                 </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-muted">
-                {t.enabled ? "Visible" : "Hidden"}
-                <Switch
-                  checked={t.enabled}
-                  onChange={(v) => void toggle(t, v)}
-                  label={`${t.name} visible to learners`}
-                />
+                <span className="flex items-center gap-1.5">
+                  <span className={cn("size-1.5 rounded-full", t.online ? "bg-success" : "bg-subtle")} aria-hidden />
+                  {t.online ? "Online" : "Offline"}
+                </span>
+                <Switch checked={t.online} onChange={(v) => void toggle(t, v)} label={`${t.name} online`} />
               </label>
               <Link
                 href={`/admin/teachers/${t.id}`}

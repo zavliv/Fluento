@@ -101,6 +101,7 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
   const { app_name, default_teacher_id, signup_enabled } = useSiteSettings();
   const guide = pickGuide(teachers, default_teacher_id);
   const { steps, features, points } = useMemo(() => landingCopy(teachers), [teachers]);
+  const onlineCount = teachers.filter((t) => t.online).length;
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
   const scrollTo = (id: string) => {
@@ -169,7 +170,8 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
         <div className="animate-in">
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-muted">
             <span className="size-1.5 rounded-full bg-success" />
-            {teachers.length} AI English teachers, online now
+            {teachers.length} AI English teachers
+            {onlineCount === teachers.length ? ", online now" : `, ${onlineCount} online now`}
           </span>
           <h1 className="mt-5 text-[40px] leading-[1.05] font-bold tracking-[-0.035em] text-ink sm:text-[52px] lg:text-[58px]">
             Speak English
