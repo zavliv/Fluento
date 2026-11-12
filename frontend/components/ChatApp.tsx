@@ -37,7 +37,7 @@ import { Sidebar } from "./Sidebar";
 import { TeacherAvatar } from "./TeacherAvatar";
 import { LandingPage } from "./landing/LandingPage";
 import { useSiteSettings } from "./SiteSettings";
-import { Home } from "./home/Home";
+import { Home, homeHeading } from "./home/Home";
 import { useAuth } from "./auth/AuthProvider";
 import { useToast } from "./ui/Toast";
 
@@ -302,6 +302,8 @@ export default function ChatApp() {
     );
   }
 
+  const home = homeHeading(user.name, progress, myTeacherIds.length > 0);
+
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
       <Sidebar
@@ -337,7 +339,14 @@ export default function ChatApp() {
           typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
-          title={view === "mistakes" ? "My mistakes" : view === "progress" ? "Practice" : undefined}
+          title={view === "mistakes" ? "My mistakes" : view === "progress" ? "Practice" : home.title}
+          subtitle={
+            view === "mistakes"
+              ? "Mistakes from your chats, collected automatically. Practise them and mark them as learned."
+              : view === "progress"
+                ? "A 2-minute challenge a day keeps your streak alive and your level growing."
+                : home.subtitle
+          }
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onShowTeachers={() => openTeacher(null)}
           onExport={exportCurrent}
@@ -392,7 +401,6 @@ export default function ChatApp() {
           </>
         ) : (
           <Home
-            userName={user.name}
             teachers={teachers}
             myTeachers={chat.myTeachers}
             myTeacherIds={myTeacherIds}

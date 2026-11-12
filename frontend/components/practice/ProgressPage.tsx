@@ -56,15 +56,8 @@ export function ProgressPage({ progress, onStart, onLevelCheck, onRefresh }: Pro
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-5xl px-4 py-10 md:px-8">
-        <header className="animate-in">
-          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[34px]">Practice</h1>
-          <p className="mt-2 text-[15px] text-muted">
-            A 2-minute challenge a day keeps your streak alive and your level growing.
-          </p>
-        </header>
-
-        <div className="mt-7">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-6">
+        <div>
           <TodayCard progress={progress} onStart={onStart} onLevelCheck={onLevelCheck} compact />
         </div>
 

@@ -11,9 +11,10 @@ type Props = {
   onLevelCheck: () => void;
   onOpenProgress?: () => void;
   compact?: boolean;
+  className?: string;
 };
 
-export function TodayCard({ progress, onStart, onLevelCheck, onOpenProgress, compact }: Props) {
+export function TodayCard({ progress, onStart, onLevelCheck, onOpenProgress, compact, className }: Props) {
   if (!progress.enabled) return null;
   if (!progress.placed) return <QuickStartCard onStart={onStart} />;
 
@@ -22,8 +23,10 @@ export function TodayCard({ progress, onStart, onLevelCheck, onOpenProgress, com
   const goalDone = today.xp >= today.goal;
 
   return (
-    <section className="@container animate-in overflow-hidden rounded-3xl border border-line bg-surface">
-      <div className="grid gap-px bg-line @lg:grid-cols-2 @4xl:grid-cols-[1fr_1.15fr_1fr]">
+    <section
+      className={cn("@container animate-in overflow-hidden rounded-3xl border border-line bg-surface", className)}
+    >
+      <div className="grid h-full gap-px bg-line @lg:grid-cols-2 @4xl:grid-cols-[1fr_1.15fr_1fr]">
         <div className="flex flex-col gap-4 bg-surface p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">

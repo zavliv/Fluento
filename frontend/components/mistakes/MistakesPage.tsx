@@ -82,24 +82,14 @@ export function MistakesPage({ teachers, summary, onChanged, onPractise }: Props
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-4xl px-4 py-10 md:px-8">
-        <header className="animate-in">
-          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[34px]">
-            My mistakes
-          </h1>
-          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">
-            Every mistake from your conversations, collected automatically. Spot your patterns, practise them, and mark
-            them as learned.
-          </p>
-        </header>
-
+      <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-6">
         {summary && !summary.enabled && (
-          <p className="mt-6 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">
+          <p className="mb-4 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">
             Mistake tracking is turned off right now, so new mistakes aren&apos;t being saved.
           </p>
         )}
 
-        <div className="mt-7 grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {stats.map((s) => (
             <div key={s.label} className="rounded-2xl border border-line bg-surface px-4 py-3.5">
               <p className="text-xs font-medium text-muted">{s.label}</p>

@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Check,
   Crosshair,
-  Flame,
   Gauge,
   LoaderCircle,
   MessageCircle,
@@ -19,12 +18,10 @@ import type { Teacher } from "@/lib/teachers";
 import type { Message } from "@/lib/types";
 import { cn, messageText, shortTime } from "@/lib/utils";
 import { TodayCard } from "../practice/TodayCard";
-import { FLAME } from "../practice/visuals";
 import { TeacherAvatar } from "../TeacherAvatar";
 import { TeacherGrid } from "../TeacherGrid";
 
 type Props = {
-  userName: string;
   teachers: Teacher[];
   myTeachers: Teacher[];
   myTeacherIds: string[];
@@ -45,8 +42,33 @@ function salutation() {
   return "Good evening";
 }
 
+export function homeHeading(name: string, progress: Progress | null, hasTeachers: boolean) {
+  const first = name.split(" ")[0];
+  const streak = progress?.placed ? progress.streak : null;
+  const onboarding = progress?.enabled !== false && (!progress?.placed || !hasTeachers);
+  return {
+    title: `${salutation()}, ${first}`,
+    subtitle: onboarding
+      ? "Let's get you set up. It takes about 5 minutes."
+      : streak?.done_today
+        ? "You've practised today. Keep the conversation going."
+        : streak && streak.current > 0
+          ? `You're on a ${streak.current}-day streak. Keep it alive today.`
+          : "Ready for today's practice?",
+  };
+}
+
+const GOAL_DISMISSED = "fluento:goal-dismissed";
+
+function readDismissed() {
+  try {
+    return localStorage.getItem(GOAL_DISMISSED) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function Home({
-  userName,
   teachers,
   myTeachers,
   myTeacherIds,
@@ -59,11 +81,16 @@ export function Home({
   onOpenProgress,
 }: Props) {
   const teachersRef = useRef<HTMLElement>(null);
-  const first = userName.split(" ")[0];
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [rec, setRec] = useState<Recommendation | null>(null);
   const teacherKey = myTeacherIds.join(",");
   const levelKey = progress?.placed ? progress.level : tested;
   const practiceKey = progress?.today.xp ?? 0;
+
+  useEffect(() => {
+    queueMicrotask(() => setDismissed(readDismissed()));
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -82,7 +109,17 @@ export function Home({
   const chooseGoal = async (goal: LearnerGoal) => {
     const next = await api.setGoal(goal);
     setRec(next);
+    setEditingGoal(false);
   };
+
+  const dismissGoal = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(GOAL_DISMISSED, "1");
+    } catch {}
+  };
+
+  const showGoalRow = Boolean(rec) && (editingGoal || (!rec?.goal && !dismissed));
 
   const steps = [
     { id: "level", done: Boolean(progress?.placed), title: "Find your level", text: "8 quick rounds · 2 minutes" },
@@ -96,7 +133,6 @@ export function Home({
   ];
   const onboarding = progress?.enabled !== false && (!progress?.placed || myTeacherIds.length === 0);
   const current = steps.find((s) => !s.done)?.id;
-  const streak = progress?.placed ? progress.streak : null;
 
   const scrollToTeachers = () => teachersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -107,41 +143,18 @@ export function Home({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-10">
-        <header className="animate-in flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink md:text-[32px]">
-              {salutation()}, {first}
-            </h1>
-            <p className="mt-1.5 text-[15px] text-muted">
-              {onboarding
-                ? "Let's get you set up. It takes about 5 minutes."
-                : streak?.done_today
-                  ? "You've practised today. Keep the conversation going."
-                  : streak && streak.current > 0
-                    ? `You're on a ${streak.current}-day streak. Keep it alive today.`
-                    : "Ready for today's practice?"}
-            </p>
-          </div>
-          {streak && streak.current > 0 && (
-            <button
-              type="button"
-              onClick={onOpenProgress}
-              className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pr-3.5 pl-1.5 text-sm font-semibold text-ink transition-colors hover:border-accent/40"
-            >
-              <span
-                className="flex size-7 items-center justify-center rounded-full text-white"
-                style={{ background: FLAME }}
-              >
-                <Flame className="size-4" />
-              </span>
-              {streak.current} day{streak.current === 1 ? "" : "s"}
-              <span className="font-normal text-muted">· {progress?.xp_week ?? 0} XP this week</span>
-            </button>
-          )}
-        </header>
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-6">
+        {showGoalRow && rec && (
+          <GoalRow
+            rec={rec}
+            editing={editingGoal}
+            onChoose={chooseGoal}
+            onCancel={() => setEditingGoal(false)}
+            onDismiss={dismissGoal}
+          />
+        )}
 
-        <div className="@container mt-7">
+        <div className={cn("@container", showGoalRow && "mt-4")}>
           <div className={cn("grid gap-5", (onboarding || pick) && "@3xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]")}>
             {onboarding ? (
               <GetStarted
@@ -159,17 +172,26 @@ export function Home({
                   onStart={onStartChallenge}
                   onLevelCheck={onLevelCheck}
                   onOpenProgress={onOpenProgress}
+                  className="h-full"
                 />
               </div>
             ) : (
               <div />
             )}
-            {pick && <Recommended teacher={pick.teacher} rec={pick.rec} onSelect={onSelect} onGoal={chooseGoal} />}
+            {pick && (
+              <Recommended
+                teacher={pick.teacher}
+                rec={pick.rec}
+                onSelect={onSelect}
+                onEditGoal={() => setEditingGoal(true)}
+                editingGoal={showGoalRow}
+              />
+            )}
           </div>
         </div>
 
         {recent.length > 0 && (
-          <section className="@container mt-10">
+          <section className="@container mt-8">
             <div className="flex items-baseline justify-between">
               <h2 className="text-[18px] font-bold tracking-[-0.015em] text-ink">Continue learning</h2>
               <span className="text-sm text-muted">{myTeachers.length} of your teachers</span>
@@ -200,7 +222,7 @@ export function Home({
           </section>
         )}
 
-        <section ref={teachersRef} className="mt-10 scroll-mt-6">
+        <section ref={teachersRef} className="mt-8 scroll-mt-6">
           <div className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="text-[18px] font-bold tracking-[-0.015em] text-ink">
               {myTeacherIds.length ? "Explore teachers" : "Choose a teacher"}
@@ -313,145 +335,161 @@ function GetStarted({
   );
 }
 
-const REASON_ICONS = { goal: Target, weak: Crosshair, level: Gauge, default: Sparkles };
-
-function Recommended({
-  teacher,
+function GoalRow({
   rec,
-  onSelect,
-  onGoal,
+  editing,
+  onChoose,
+  onCancel,
+  onDismiss,
 }: {
-  teacher: Teacher;
   rec: Recommendation;
-  onSelect: (id: string) => void;
-  onGoal: (goal: LearnerGoal) => Promise<void>;
+  editing: boolean;
+  onChoose: (goal: LearnerGoal) => Promise<void>;
+  onCancel: () => void;
+  onDismiss: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState<LearnerGoal | null>(null);
-  const goalLabel = rec.goal_options.find((g) => g.id === rec.goal)?.label;
-  const askGoal = !rec.goal || editing;
 
   const choose = async (goal: LearnerGoal) => {
     setSaving(goal);
     try {
-      await onGoal(goal);
-      setEditing(false);
+      await onChoose(goal);
     } finally {
       setSaving(null);
     }
   };
 
   return (
+    <section className="animate-in rounded-2xl border border-line bg-surface px-4 py-3.5">
+      <div className="flex items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+          <Target className="size-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-ink">
+            {editing && rec.goal ? "Change your goal" : "What do you want English for?"}
+          </p>
+          <p className="text-xs text-muted">We&apos;ll match you with the right teacher.</p>
+        </div>
+        <button
+          type="button"
+          onClick={editing ? onCancel : onDismiss}
+          className="h-8 shrink-0 px-2 text-[13px] text-muted hover:text-ink"
+        >
+          {editing ? "Cancel" : "Not now"}
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 sm:pl-12">
+        {rec.goal_options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            disabled={saving !== null}
+            onClick={() => void choose(option.id)}
+            className={cn(
+              "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors disabled:opacity-60",
+              option.id === rec.goal
+                ? "border-accent bg-accent-soft text-accent"
+                : "border-line text-ink hover:border-accent/50 hover:bg-accent-soft/40",
+            )}
+          >
+            {saving === option.id && <LoaderCircle className="size-3.5 animate-spin" />}
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const REASON_ICONS = { goal: Target, weak: Crosshair, level: Gauge, default: Sparkles };
+
+function Recommended({
+  teacher,
+  rec,
+  onSelect,
+  onEditGoal,
+  editingGoal,
+}: {
+  teacher: Teacher;
+  rec: Recommendation;
+  onSelect: (id: string) => void;
+  onEditGoal: () => void;
+  editingGoal: boolean;
+}) {
+  const goalLabel = rec.goal_options.find((g) => g.id === rec.goal)?.label;
+
+  return (
     <section
-      className="animate-in relative flex flex-col overflow-hidden rounded-3xl border"
+      className="animate-in flex flex-col overflow-hidden rounded-3xl border"
       style={{
         animationDelay: "60ms",
         borderColor: `color-mix(in srgb, ${teacher.color} 30%, var(--line))`,
         background: `color-mix(in srgb, ${teacher.color} 6%, var(--surface))`,
       }}
     >
-      <div key={teacher.id} className="animate-in flex flex-1 flex-col p-5 md:p-6">
-        <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: teacher.color }}>
-          <Sparkles className="size-3.5" />
-          Recommended for you
-        </p>
-        <div className="mt-4 flex items-center gap-3">
-          <TeacherAvatar name={teacher.name} color={teacher.color} size={52} />
-          <div className="min-w-0">
-            <h2 className="text-[20px] leading-tight font-bold tracking-[-0.02em] text-ink">{teacher.name}</h2>
-            <p className="text-sm font-semibold" style={{ color: teacher.color }}>
-              {teacher.specialty}
+      <div key={teacher.id} className="animate-in flex flex-1 flex-col p-5">
+        <div className="flex items-center gap-3">
+          <TeacherAvatar name={teacher.name} color={teacher.color} size={44} />
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: teacher.color }}>
+              <Sparkles className="size-3" />
+              Recommended for you
             </p>
+            <h2 className="truncate text-[17px] leading-tight font-bold tracking-[-0.015em] text-ink">
+              {teacher.name}
+              <span className="font-medium text-muted"> · {teacher.specialty}</span>
+            </h2>
           </div>
         </div>
-        <p className="mt-3 text-[15px] leading-relaxed text-ink">{teacher.tagline}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted">{teacher.tagline}</p>
 
-        <div className="mt-4 rounded-2xl border border-line/80 bg-surface/70 p-3.5">
-          <p className="text-xs font-semibold text-muted">Why {teacher.name}</p>
-          <ul className="mt-2 space-y-2">
-            {rec.reasons.map((reason) => {
-              const Icon = REASON_ICONS[reason.kind];
-              return (
-                <li key={reason.kind} className="flex gap-2.5 text-sm">
-                  <Icon className="mt-0.5 size-4 shrink-0" style={{ color: teacher.color }} />
-                  <span className="min-w-0">
-                    <span className="text-ink">{reason.text}</span>
-                    {reason.detail && <span className="block text-xs text-muted">{reason.detail}</span>}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        <ul className="mt-3 space-y-2">
+          {rec.reasons.map((reason) => {
+            const Icon = REASON_ICONS[reason.kind];
+            return (
+              <li key={reason.kind} className="flex gap-2.5 text-sm">
+                <Icon className="mt-0.5 size-4 shrink-0" style={{ color: teacher.color }} />
+                <span className="min-w-0">
+                  <span className="text-ink">{reason.text}</span>
+                  {reason.detail && <span className="block text-xs text-muted">{reason.detail}</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
 
         <span className="flex-1" />
-        <div className="mt-5">
-          <button
-            type="button"
-            onClick={() => onSelect(teacher.id)}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
-            style={{ background: teacher.color }}
-          >
-            Talk to {teacher.name}
-            <ArrowRight className="size-4" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onSelect(teacher.id)}
+          className="mt-4 inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl px-4 text-sm font-semibold text-white transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
+          style={{ background: teacher.color }}
+        >
+          Talk to {teacher.name}
+          <ArrowRight className="size-4" />
+        </button>
       </div>
 
-      <div className="border-t border-line/80 bg-surface/60 px-5 py-4 md:px-6">
-        {askGoal ? (
-          <>
-            <p className="text-sm font-semibold text-ink">
-              {rec.goal ? "Change your goal" : "What do you want English for?"}
-            </p>
-            {!rec.goal && <p className="mt-0.5 text-xs text-muted">Pick one and we&apos;ll match you better.</p>}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {rec.goal_options.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  disabled={saving !== null}
-                  onClick={() => void choose(option.id)}
-                  className={cn(
-                    "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors disabled:opacity-60",
-                    option.id === rec.goal
-                      ? "border-accent bg-accent-soft text-accent"
-                      : "border-line bg-surface text-ink hover:border-accent/50",
-                  )}
-                >
-                  {saving === option.id && <LoaderCircle className="size-3.5 animate-spin" />}
-                  {option.label}
-                </button>
-              ))}
-              {editing && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(false)}
-                  className="h-8 px-2 text-[13px] text-muted hover:text-ink"
-                >
-                  Cancel
-                </button>
+      {!editingGoal && (
+        <div className="flex items-center justify-between gap-3 border-t border-line/70 px-5 py-2.5 text-[13px]">
+          <span className="flex min-w-0 items-center gap-2 text-muted">
+            <Target className="size-3.5 shrink-0" />
+            <span className="truncate">
+              {goalLabel ? (
+                <>
+                  Your goal: <span className="font-semibold text-ink">{goalLabel}</span>
+                </>
+              ) : (
+                "No goal set yet"
               )}
-            </div>
-          </>
-        ) : (
-          <p className="flex items-center justify-between gap-3 text-sm">
-            <span className="flex min-w-0 items-center gap-2 text-muted">
-              <Target className="size-4 shrink-0" />
-              <span className="truncate">
-                Your goal: <span className="font-semibold text-ink">{goalLabel}</span>
-              </span>
             </span>
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="shrink-0 text-sm font-semibold text-accent hover:underline"
-            >
-              Change
-            </button>
-          </p>
-        )}
-      </div>
+          </span>
+          <button type="button" onClick={onEditGoal} className="shrink-0 font-semibold text-accent hover:underline">
+            {goalLabel ? "Change" : "Set goal"}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

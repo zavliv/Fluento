@@ -14,13 +14,23 @@ type Props = {
   sidebarOpen: boolean;
   model: string | null;
   title?: string;
+  subtitle?: string;
   onToggleSidebar: () => void;
   onShowTeachers: () => void;
   onExport: () => void;
   onClear: () => void;
 };
 
-export function ChatHeader({ teacher, online, typing, sidebarOpen, model, title = "All teachers", ...actions }: Props) {
+export function ChatHeader({
+  teacher,
+  online,
+  typing,
+  sidebarOpen,
+  model,
+  title = "All teachers",
+  subtitle,
+  ...actions
+}: Props) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line/70 px-2.5 md:px-4">
       <div className="flex min-w-0 items-center gap-1">
@@ -55,7 +65,10 @@ export function ChatHeader({ teacher, online, typing, sidebarOpen, model, title 
             </div>
           </div>
         ) : (
-          <h2 className="ml-1.5 text-sm font-medium text-ink">{title}</h2>
+          <div className="ml-1.5 min-w-0">
+            <h1 className="truncate text-[15px] leading-tight font-semibold text-ink">{title}</h1>
+            {subtitle && <p className="mt-0.5 hidden truncate text-xs text-muted sm:block">{subtitle}</p>}
+          </div>
         )}
       </div>
 
