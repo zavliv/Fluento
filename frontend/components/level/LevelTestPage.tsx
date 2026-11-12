@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, CEFR_LEVELS, LEVEL_NAMES, type CefrLevel, type LevelTest, type LevelTestState } from "@/lib/api";
 import type { Teacher } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
+import { stopSpeech } from "@/lib/speech";
 import { useToast } from "../ui/Toast";
 import { ChatRound } from "./ChatRound";
 import { ResultView } from "./Results";
@@ -127,7 +128,7 @@ export function LevelTestPage({ teachers, onOpenTeacher, onPractise, onCompleted
   };
 
   const leave = () => {
-    window.speechSynthesis?.cancel();
+    stopSpeech();
     onClose();
   };
 

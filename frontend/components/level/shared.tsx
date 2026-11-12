@@ -1,8 +1,9 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { CEFR_LEVELS, naturalSpeechUrl, type CefrLevel } from "@/lib/api";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { CEFR_LEVELS, type CefrLevel } from "@/lib/api";
+import { speak, stopSpeech } from "@/lib/speech";
 import { cn } from "@/lib/utils";
 
 export const rank = (level: CefrLevel) => CEFR_LEVELS.indexOf(level);
@@ -123,73 +124,32 @@ export function SkillBar({ label, level, change }: { label: string; level: CefrL
   );
 }
 
-const NATURAL_BROWSER_VOICE = /natural|neural|online|premium|enhanced|google/i;
-
-let player: HTMLAudioElement | null = null;
-
-function playUrl(url: string, onEnd: () => void) {
-  player ??= new Audio();
-  player.src = url;
-  player.onended = onEnd;
-  player.onerror = onEnd;
-  return player.play();
-}
-
-function stopAudio() {
-  player?.pause();
-  window.speechSynthesis?.cancel();
-}
-
-function browserSpeak(text: string, onEnd: () => void) {
-  const synth = window.speechSynthesis;
-  if (!synth) return onEnd();
-  synth.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  const voices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("en"));
-  const voice = voices.find((v) => NATURAL_BROWSER_VOICE.test(v.name)) ?? voices[0];
-  if (voice) utterance.voice = voice;
-  utterance.onend = onEnd;
-  utterance.onerror = onEnd;
-  synth.speak(utterance);
-}
-
 export function useSpeaker() {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
-  const request = useRef(0);
-  const supported = typeof window !== "undefined" && typeof Audio !== "undefined";
+  const supported = typeof window !== "undefined";
 
   const stop = useCallback(() => {
-    request.current += 1;
-    stopAudio();
+    stopSpeech();
     setPlaying(false);
     setLoading(false);
   }, []);
 
-  const speak = useCallback(
-    async (text: string) => {
-      stop();
-      const id = request.current;
-      setLoading(true);
-      const done = () => {
-        if (request.current === id) setPlaying(false);
-      };
-      try {
-        const url = await naturalSpeechUrl(text);
-        if (request.current !== id) return;
+  const say = useCallback((text: string) => {
+    setLoading(true);
+    setPlaying(false);
+    void speak(text, {
+      onStart: () => {
         setLoading(false);
         setPlaying(true);
-        await playUrl(url, done);
-      } catch {
-        if (request.current !== id) return;
+      },
+      onEnd: () => {
         setLoading(false);
-        setPlaying(true);
-        browserSpeak(text, done);
-      }
-    },
-    [stop],
-  );
+        setPlaying(false);
+      },
+    });
+  }, []);
 
-  useEffect(() => () => stop(), [stop]);
-  return { speak, stop, playing, loading, supported };
+  useEffect(() => () => stopSpeech(), []);
+  return { speak: say, stop, playing, loading, supported };
 }

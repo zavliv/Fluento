@@ -487,26 +487,6 @@ export async function checkHealth(): Promise<{ online: boolean; model: string | 
   }
 }
 
-const speechCache = new Map<string, Promise<string>>();
-
-export function naturalSpeechUrl(text: string): Promise<string> {
-  const key = text.trim();
-  const cached = speechCache.get(key);
-  if (cached) return cached;
-  const pending = fetch(`${API_URL}/speech`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: key }),
-  }).then(async (res) => {
-    if (!res.ok) throw new Error("Natural voice unavailable");
-    return URL.createObjectURL(await res.blob());
-  });
-  pending.catch(() => speechCache.delete(key));
-  speechCache.set(key, pending);
-  return pending;
-}
-
 export async function transcribeAudio(audio: Blob, filename: string): Promise<string> {
   const form = new FormData();
   form.append("file", audio, filename);

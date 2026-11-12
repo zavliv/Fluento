@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
@@ -45,12 +47,13 @@ async def transcribe_audio(file: UploadFile) -> TranscriptionResponse:
 
 class SpeechRequest(BaseModel):
     text: str = Field(min_length=1, max_length=600)
+    gender: Literal["female", "male"] | None = None
 
 
 @router.post("/speech", dependencies=[Depends(current_user)])
 async def speech(body: SpeechRequest) -> Response:
     try:
-        audio = await synthesize(" ".join(body.text.split()))
+        audio = await synthesize(" ".join(body.text.split()), body.gender)
     except SpeechError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return Response(content=audio, media_type="audio/wav", headers={"Cache-Control": "private, max-age=86400"})

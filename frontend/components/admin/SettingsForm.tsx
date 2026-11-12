@@ -194,8 +194,21 @@ function Form({ initial, teachers }: { initial: AppSettings; teachers: AdminTeac
             <Field label="Voice model">
               <Input value={draft.tts_model} onChange={(e) => set("tts_model", e.target.value)} className="font-mono" />
             </Field>
-            <Field label="Voice" hint="A voice name the model supports.">
-              <Input value={draft.tts_voice} onChange={(e) => set("tts_voice", e.target.value)} className="font-mono" />
+            <Field label="Voice">
+              <Select value={draft.tts_voice} onChange={(e) => set("tts_voice", e.target.value)}>
+                {[
+                  ["hannah", "Hannah (female)"],
+                  ["diana", "Diana (female)"],
+                  ["autumn", "Autumn (female)"],
+                  ["troy", "Troy (male)"],
+                  ["daniel", "Daniel (male)"],
+                  ["austin", "Austin (male)"],
+                ].map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
             </Field>
           </div>
         </Card>
