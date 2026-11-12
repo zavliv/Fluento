@@ -23,6 +23,7 @@ class UserOut(BaseModel):
     created_at: datetime
     level: Level | None = None
     level_tested_at: datetime | None = None
+    goal: str | None = None
 
 
 class MeResponse(BaseModel):
@@ -38,4 +39,5 @@ def user_out(doc: dict) -> UserOut:
         created_at=doc["created_at"],
         level=tested.get("level"),
         level_tested_at=tested.get("tested_at"),
+        goal=doc.get("goal"),
     )

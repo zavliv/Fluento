@@ -1,14 +1,25 @@
 "use client";
 
-import { ArrowRight, Check, Flame, MessageCircle, Play, Sparkles, Zap } from "lucide-react";
-import { useMemo, useRef } from "react";
-import type { CefrLevel, Progress } from "@/lib/api";
-import { pickGuide, type Teacher } from "@/lib/teachers";
+import {
+  ArrowRight,
+  Check,
+  Crosshair,
+  Flame,
+  Gauge,
+  LoaderCircle,
+  MessageCircle,
+  Play,
+  Sparkles,
+  Target,
+  Zap,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { api, type CefrLevel, type LearnerGoal, type Progress, type Recommendation } from "@/lib/api";
+import type { Teacher } from "@/lib/teachers";
 import type { Message } from "@/lib/types";
 import { cn, messageText, shortTime } from "@/lib/utils";
 import { TodayCard } from "../practice/TodayCard";
 import { FLAME } from "../practice/visuals";
-import { useSiteSettings } from "../SiteSettings";
 import { TeacherAvatar } from "../TeacherAvatar";
 import { TeacherGrid } from "../TeacherGrid";
 
@@ -26,32 +37,12 @@ type Props = {
   onOpenProgress: () => void;
 };
 
-const LEVEL_FIT: Record<CefrLevel, string[]> = {
-  A1: ["Beginner", "All levels"],
-  A2: ["Beginner", "All levels", "Intermediate"],
-  B1: ["Intermediate", "All levels"],
-  B2: ["Intermediate", "Advanced", "All levels"],
-  C1: ["Advanced", "All levels"],
-  C2: ["Advanced", "All levels"],
-};
-
 function salutation() {
   const hour = new Date().getHours();
   if (hour < 5) return "Hello";
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
   return "Good evening";
-}
-
-function recommend(teachers: Teacher[], myIds: string[], level: CefrLevel | null, fallbackId: string) {
-  const fresh = teachers.filter((t) => !myIds.includes(t.id));
-  if (!fresh.length) return null;
-  if (!level) return { teacher: pickGuide(fresh, fallbackId) ?? fresh[0], reason: "A friendly first teacher" };
-  const match =
-    fresh.find((t) => LEVEL_FIT[level][0] === t.level) ?? fresh.find((t) => LEVEL_FIT[level].includes(t.level));
-  return match
-    ? { teacher: match, reason: `A good fit for your ${level} level` }
-    : { teacher: fresh[0], reason: "Try a new skill" };
 }
 
 export function Home({
@@ -67,14 +58,31 @@ export function Home({
   onLevelCheck,
   onOpenProgress,
 }: Props) {
-  const { default_teacher_id } = useSiteSettings();
   const teachersRef = useRef<HTMLElement>(null);
   const first = userName.split(" ")[0];
-  const level = progress?.placed ? progress.level : tested;
-  const pick = useMemo(
-    () => recommend(teachers, myTeacherIds, level, default_teacher_id),
-    [teachers, myTeacherIds, level, default_teacher_id],
-  );
+  const [rec, setRec] = useState<Recommendation | null>(null);
+  const teacherKey = myTeacherIds.join(",");
+  const levelKey = progress?.placed ? progress.level : tested;
+  const practiceKey = progress?.today.xp ?? 0;
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .recommendation()
+      .then((r) => alive && setRec(r))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [teacherKey, levelKey, practiceKey]);
+
+  const pickTeacher = rec?.teacher_id ? teachers.find((t) => t.id === rec.teacher_id) : undefined;
+  const pick = rec && pickTeacher ? { teacher: pickTeacher, rec } : null;
+
+  const chooseGoal = async (goal: LearnerGoal) => {
+    const next = await api.setGoal(goal);
+    setRec(next);
+  };
 
   const steps = [
     { id: "level", done: Boolean(progress?.placed), title: "Find your level", text: "8 quick rounds · 2 minutes" },
@@ -156,7 +164,7 @@ export function Home({
             ) : (
               <div />
             )}
-            {pick && <Recommended teacher={pick.teacher} reason={pick.reason} onSelect={onSelect} />}
+            {pick && <Recommended teacher={pick.teacher} rec={pick.rec} onSelect={onSelect} onGoal={chooseGoal} />}
           </div>
         </div>
 
@@ -305,56 +313,144 @@ function GetStarted({
   );
 }
 
+const REASON_ICONS = { goal: Target, weak: Crosshair, level: Gauge, default: Sparkles };
+
 function Recommended({
   teacher,
-  reason,
+  rec,
   onSelect,
+  onGoal,
 }: {
   teacher: Teacher;
-  reason: string;
+  rec: Recommendation;
   onSelect: (id: string) => void;
+  onGoal: (goal: LearnerGoal) => Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState<LearnerGoal | null>(null);
+  const goalLabel = rec.goal_options.find((g) => g.id === rec.goal)?.label;
+  const askGoal = !rec.goal || editing;
+
+  const choose = async (goal: LearnerGoal) => {
+    setSaving(goal);
+    try {
+      await onGoal(goal);
+      setEditing(false);
+    } finally {
+      setSaving(null);
+    }
+  };
+
   return (
     <section
-      className="animate-in relative flex flex-col overflow-hidden rounded-3xl border p-5 md:p-6"
+      className="animate-in relative flex flex-col overflow-hidden rounded-3xl border"
       style={{
         animationDelay: "60ms",
         borderColor: `color-mix(in srgb, ${teacher.color} 30%, var(--line))`,
         background: `color-mix(in srgb, ${teacher.color} 6%, var(--surface))`,
       }}
     >
-      <p className="flex flex-wrap items-center gap-x-1.5 text-xs font-semibold" style={{ color: teacher.color }}>
-        <Sparkles className="size-3.5" />
-        Recommended for you
-        <span className="font-normal text-muted">· {reason}</span>
-      </p>
-      <div className="mt-4 flex items-center gap-3">
-        <TeacherAvatar name={teacher.name} color={teacher.color} size={52} />
-        <div className="min-w-0">
-          <h2 className="text-[20px] leading-tight font-bold tracking-[-0.02em] text-ink">{teacher.name}</h2>
-          <p className="text-sm font-semibold" style={{ color: teacher.color }}>
-            {teacher.specialty}
-          </p>
+      <div key={teacher.id} className="animate-in flex flex-1 flex-col p-5 md:p-6">
+        <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: teacher.color }}>
+          <Sparkles className="size-3.5" />
+          Recommended for you
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <TeacherAvatar name={teacher.name} color={teacher.color} size={52} />
+          <div className="min-w-0">
+            <h2 className="text-[20px] leading-tight font-bold tracking-[-0.02em] text-ink">{teacher.name}</h2>
+            <p className="text-sm font-semibold" style={{ color: teacher.color }}>
+              {teacher.specialty}
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-[15px] leading-relaxed text-ink">{teacher.tagline}</p>
+
+        <div className="mt-4 rounded-2xl border border-line/80 bg-surface/70 p-3.5">
+          <p className="text-xs font-semibold text-muted">Why {teacher.name}</p>
+          <ul className="mt-2 space-y-2">
+            {rec.reasons.map((reason) => {
+              const Icon = REASON_ICONS[reason.kind];
+              return (
+                <li key={reason.kind} className="flex gap-2.5 text-sm">
+                  <Icon className="mt-0.5 size-4 shrink-0" style={{ color: teacher.color }} />
+                  <span className="min-w-0">
+                    <span className="text-ink">{reason.text}</span>
+                    {reason.detail && <span className="block text-xs text-muted">{reason.detail}</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <span className="flex-1" />
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => onSelect(teacher.id)}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
+            style={{ background: teacher.color }}
+          >
+            Talk to {teacher.name}
+            <ArrowRight className="size-4" />
+          </button>
         </div>
       </div>
-      <p className="mt-4 text-[15px] leading-relaxed text-ink">{teacher.tagline}</p>
-      <blockquote
-        className="mt-3 border-l-2 pl-3 text-sm leading-relaxed text-muted italic"
-        style={{ borderColor: teacher.color }}
-      >
-        {teacher.quote}
-      </blockquote>
-      <span className="flex-1" />
-      <div className="mt-5">
-        <button
-          type="button"
-          onClick={() => onSelect(teacher.id)}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
-          style={{ background: teacher.color }}
-        >
-          Talk to {teacher.name}
-          <ArrowRight className="size-4" />
-        </button>
+
+      <div className="border-t border-line/80 bg-surface/60 px-5 py-4 md:px-6">
+        {askGoal ? (
+          <>
+            <p className="text-sm font-semibold text-ink">
+              {rec.goal ? "Change your goal" : "What do you want English for?"}
+            </p>
+            {!rec.goal && <p className="mt-0.5 text-xs text-muted">Pick one and we&apos;ll match you better.</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {rec.goal_options.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  disabled={saving !== null}
+                  onClick={() => void choose(option.id)}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors disabled:opacity-60",
+                    option.id === rec.goal
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-line bg-surface text-ink hover:border-accent/50",
+                  )}
+                >
+                  {saving === option.id && <LoaderCircle className="size-3.5 animate-spin" />}
+                  {option.label}
+                </button>
+              ))}
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="h-8 px-2 text-[13px] text-muted hover:text-ink"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="flex items-center justify-between gap-3 text-sm">
+            <span className="flex min-w-0 items-center gap-2 text-muted">
+              <Target className="size-4 shrink-0" />
+              <span className="truncate">
+                Your goal: <span className="font-semibold text-ink">{goalLabel}</span>
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="shrink-0 text-sm font-semibold text-accent hover:underline"
+            >
+              Change
+            </button>
+          </p>
+        )}
       </div>
     </section>
   );

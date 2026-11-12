@@ -25,6 +25,18 @@ export type User = {
   created_at: string;
   level?: CefrLevel | null;
   level_tested_at?: string | null;
+  goal?: LearnerGoal | null;
+};
+
+export type LearnerGoal = "speaking" | "work" | "exams" | "grammar" | "vocabulary";
+
+export type Recommendation = {
+  teacher_id: string | null;
+  goal: LearnerGoal | null;
+  weak_skill: { skill: "grammar" | "vocabulary" | "speaking"; source: string; detail: string } | null;
+  level: CefrLevel | null;
+  reasons: { kind: "goal" | "weak" | "level" | "default"; text: string; detail: string }[];
+  goal_options: { id: LearnerGoal; label: string }[];
 };
 
 export type SkillScores = { grammar: CefrLevel; vocabulary: CefrLevel; fluency: CefrLevel; comprehension: CefrLevel };
@@ -414,6 +426,8 @@ export const api = {
   publicSettings: () => request<PublicSettings>("/app-settings"),
   health: () => request<{ status: string; model: string }>("/health"),
 
+  recommendation: () => request<Recommendation>("/me/recommendation"),
+  setGoal: (goal: LearnerGoal | null) => request<Recommendation>("/me/goal", { method: "PUT", json: { goal } }),
   myTeachers: () => request<string[]>("/me/teachers"),
   setMyTeachers: (teacherIds: string[]) =>
     request<string[]>("/me/teachers", { method: "PUT", json: { teacher_ids: teacherIds } }),

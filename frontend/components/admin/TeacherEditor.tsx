@@ -310,7 +310,10 @@ function EditorForm({ initial, isNew }: { initial: AdminTeacher; isNew: boolean 
               <Field label="Sample line" hint="A short line in the teacher's voice, shown on their card.">
                 <Input value={draft.quote} onChange={(e) => set("quote", e.target.value)} />
               </Field>
-              <Field label="Goals" hint="Which filters this teacher appears under.">
+              <Field
+                label="Goals"
+                hint="Filters this teacher appears under, and the learner goals and weak skills they are recommended for. Work and Exams mark a specialist."
+              >
                 <div className="flex flex-wrap gap-1.5">
                   {GOALS.map((goal) => {
                     const on = draft.goals.includes(goal.id);
