@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from app.db import db, now
 from app.schemas.mistakes import CATEGORIES, ExtractedMistake
 from app.services.app_settings import get_app_settings
-from app.services.llm import client
+from app.services.llm import chat_create
 
 logger = logging.getLogger("fluento.mistakes")
 
@@ -40,7 +40,7 @@ async def extract_mistakes(text: str, previous_reply: str, known_rules: list[str
         f"The teacher's previous message (context only, don't check it):\n{previous_reply[:800] or '(none)'}\n\n"
         f"The learner's message to check:\n{text[:2000]}"
     )
-    response = await client.chat.completions.create(
+    response = await chat_create(
         model=app_settings["llm_model"],
         messages=[{"role": "system", "content": INSTRUCTIONS}, {"role": "user", "content": prompt}],
         temperature=0,

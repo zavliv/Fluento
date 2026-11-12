@@ -1,7 +1,7 @@
 import groq
 
 from app.services.app_settings import get_app_settings
-from app.services.llm import client, error_message
+from app.services.llm import error_message, speech_create, transcription_create
 
 
 class TranscriptionError(Exception):
@@ -11,7 +11,7 @@ class TranscriptionError(Exception):
 async def transcribe(audio: bytes, filename: str) -> str:
     app_settings = await get_app_settings()
     try:
-        result = await client.audio.transcriptions.create(
+        result = await transcription_create(
             model=app_settings["stt_model"],
             file=(filename, audio),
             prompt=app_settings["app_name"],
@@ -43,7 +43,7 @@ async def synthesize(text: str, gender: str | None = None) -> bytes:
     if key in _cache:
         return _cache[key]
     try:
-        response = await client.audio.speech.create(model=model, voice=voice, input=text, response_format="wav")
+        response = await speech_create(model=model, voice=voice, input=text, response_format="wav")
         audio = await response.read()
     except groq.GroqError as exc:
         if isinstance(exc, groq.BadRequestError) and "terms" in str(exc):

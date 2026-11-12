@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from app.db import db, now
 from app.schemas.memory import LearnerMemory, MemoryFields
 from app.services.app_settings import get_app_settings
-from app.services.llm import client
+from app.services.llm import chat_create
 
 logger = logging.getLogger("fluento.memory")
 
@@ -67,7 +67,7 @@ async def extract_memory(current: MemoryFields, teacher_name: str, messages: lis
         f"Recent conversation with the teacher {teacher_name}:\n{_transcript(messages)}\n\n"
         "Return the updated memory as JSON."
     )
-    response = await client.chat.completions.create(
+    response = await chat_create(
         model=app_settings["llm_model"],
         messages=[{"role": "system", "content": INSTRUCTIONS}, {"role": "user", "content": prompt}],
         temperature=0.2,

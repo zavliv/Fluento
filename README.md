@@ -86,17 +86,18 @@ Open http://localhost:3000.
 
 Backend settings live in `backend/app/config.py` and are read from `backend/.env`:
 
-| Variable         | Default                     | Description                                           |
-| ---------------- | --------------------------- | ----------------------------------------------------- |
-| `GROQ_API_KEY`   | (required)                  | Groq API key                                          |
-| `MONGODB_URI`    | (required)                  | MongoDB connection string                             |
-| `MONGODB_DB`     | `fluento`                   | Database name                                         |
-| `JWT_SECRET`     | (required)                  | Secret for signing session cookies                    |
-| `ADMIN_EMAIL`    | (optional)                  | First owner account, created when there are no admins |
-| `ADMIN_PASSWORD` | (optional)                  | Password for that first owner                         |
-| `SESSION_DAYS`   | `30`                        | How long a login lasts                                |
-| `COOKIE_SECURE`  | `false`                     | Set to `true` when serving over HTTPS                 |
-| `CORS_ORIGINS`   | `["http://localhost:3000"]` | Allowed frontend origins (JSON list)                  |
+| Variable                            | Default                     | Description                                                                                     |
+| ----------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `GROQ_API_KEY`                      | (required)                  | Groq API key                                                                                    |
+| `GROQ_API_KEY1`, `GROQ_API_KEY2`, … | (optional)                  | Extra keys. When one key hits a rate limit, the app switches to the next until the limit resets |
+| `MONGODB_URI`                       | (required)                  | MongoDB connection string                                                                       |
+| `MONGODB_DB`                        | `fluento`                   | Database name                                                                                   |
+| `JWT_SECRET`                        | (required)                  | Secret for signing session cookies                                                              |
+| `ADMIN_EMAIL`                       | (optional)                  | First owner account, created when there are no admins                                           |
+| `ADMIN_PASSWORD`                    | (optional)                  | Password for that first owner                                                                   |
+| `SESSION_DAYS`                      | `30`                        | How long a login lasts                                                                          |
+| `COOKIE_SECURE`                     | `false`                     | Set to `true` when serving over HTTPS                                                           |
+| `CORS_ORIGINS`                      | `["http://localhost:3000"]` | Allowed frontend origins (JSON list)                                                            |
 
 The model, temperature, max tokens, history limit, speech-to-text model and sign-up switch are stored in MongoDB and edited from **Admin → Settings**; changes apply without a restart.
 

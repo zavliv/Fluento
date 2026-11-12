@@ -2,10 +2,21 @@ from collections.abc import AsyncIterator
 
 import groq
 
-from app.config import settings
 from app.services.app_settings import get_app_settings
 
-client = groq.AsyncGroq(api_key=settings.groq_api_key.get_secret_value())
+from app.services.groq_pool import pool
+
+
+async def chat_create(**kwargs):
+    return await pool.run(kwargs["model"], lambda client: client.chat.completions.create(**kwargs))
+
+
+async def transcription_create(**kwargs):
+    return await pool.run(kwargs["model"], lambda client: client.audio.transcriptions.create(**kwargs))
+
+
+async def speech_create(**kwargs):
+    return await pool.run(kwargs["model"], lambda client: client.audio.speech.create(**kwargs))
 
 
 def error_message(exc: groq.GroqError) -> str:
@@ -28,7 +39,7 @@ async def stream_completion(
     history += [{"role": m["role"], "content": m["content"]} for m in messages[-app_settings["history_limit"] :]]
 
     try:
-        stream = await client.chat.completions.create(
+        stream = await chat_create(
             model=app_settings["llm_model"],
             messages=history,
             temperature=app_settings["llm_temperature"] if temperature is None else temperature,
@@ -55,7 +66,7 @@ async def complete(
     reasoning_effort: str | None = None,
 ) -> str:
     app_settings = await get_app_settings()
-    response = await client.chat.completions.create(
+    response = await chat_create(
         model=app_settings["llm_model"],
         messages=[{"role": "system", "content": system_prompt}, *messages],
         temperature=temperature,

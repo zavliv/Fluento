@@ -1,3 +1,7 @@
+import os
+import re
+
+from dotenv import dotenv_values
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -34,6 +38,18 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def _groq_keys() -> list[str]:
+    values = {**dotenv_values(".env"), **os.environ}
+    names = sorted(
+        (name for name in values if re.fullmatch(r"GROQ_API_KEY\d*", name)),
+        key=lambda name: int(name.removeprefix("GROQ_API_KEY") or 0),
+    )
+    return list(dict.fromkeys(values[n].strip() for n in names if values[n] and values[n].strip()))
+
+
+GROQ_KEYS = _groq_keys()
 
 for name in ("groq_api_key", "mongodb_uri", "jwt_secret"):
     if getattr(settings, name) is None:
