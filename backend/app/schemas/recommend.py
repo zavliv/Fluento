@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 LearnerGoal = Literal["speaking", "work", "exams", "grammar", "vocabulary"]
 LEARNER_GOALS: dict[str, str] = {
-    "speaking": "Everyday conversation",
+    "speaking": "Everyday English",
     "work": "Work and interviews",
     "exams": "Exams like IELTS",
     "grammar": "Better grammar",

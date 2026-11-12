@@ -2,14 +2,19 @@
 
 import {
   ArrowRight,
+  BookOpen,
+  Briefcase,
   Check,
   Crosshair,
   Gauge,
+  GraduationCap,
   LoaderCircle,
   MessageCircle,
   Play,
   Sparkles,
+  SpellCheck,
   Target,
+  X,
   Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -318,47 +323,71 @@ function GoalRow({
   };
 
   return (
-    <section className="animate-in rounded-2xl border border-line bg-surface px-4 py-3.5">
-      <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
-          <Target className="size-[18px]" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-ink">
+    <section className="animate-in rounded-2xl border border-line bg-surface p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-ink">
             {editing && rec.goal ? "Change your goal" : "What do you want English for?"}
-          </p>
-          <p className="text-xs text-muted">We&apos;ll match you with the right teacher.</p>
+          </h2>
+          <p className="mt-0.5 text-xs text-muted">Pick one and we&apos;ll recommend the right teacher.</p>
         </div>
         <button
           type="button"
           onClick={editing ? onCancel : onDismiss}
-          className="h-8 shrink-0 px-2 text-[13px] text-muted hover:text-ink"
+          aria-label={editing ? "Cancel" : "Not now"}
+          title={editing ? "Cancel" : "Not now"}
+          className="-mt-1 -mr-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-ink"
         >
-          {editing ? "Cancel" : "Not now"}
+          <X className="size-4" />
         </button>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2 sm:pl-12">
-        {rec.goal_options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            disabled={saving !== null}
-            onClick={() => void choose(option.id)}
-            className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors disabled:opacity-60",
-              option.id === rec.goal
-                ? "border-accent bg-accent-soft text-accent"
-                : "border-line text-ink hover:border-accent/50 hover:bg-accent-soft/40",
-            )}
-          >
-            {saving === option.id && <LoaderCircle className="size-3.5 animate-spin" />}
-            {option.label}
-          </button>
-        ))}
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {rec.goal_options.map((option) => {
+          const meta = GOAL_META[option.id];
+          const Icon = meta?.icon ?? Target;
+          const on = option.id === rec.goal;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={saving !== null}
+              onClick={() => void choose(option.id)}
+              aria-pressed={on}
+              className={cn(
+                "group relative flex flex-col items-start gap-2.5 rounded-xl border p-3 text-left transition-[border-color,background-color,transform] active:scale-[0.98] disabled:opacity-60",
+                on ? "border-accent bg-accent-soft/60" : "border-line hover:border-accent/50 hover:bg-hover/50",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                  on ? "bg-accent text-accent-ink" : "bg-hover text-muted group-hover:text-accent",
+                )}
+              >
+                {saving === option.id ? <LoaderCircle className="size-4 animate-spin" /> : <Icon className="size-4" />}
+              </span>
+              <span className="w-full min-w-0">
+                <span className={cn("block text-sm leading-snug font-semibold", on ? "text-accent" : "text-ink")}>
+                  {option.label}
+                </span>
+                {meta && <span className="mt-0.5 block text-xs text-muted">{meta.hint}</span>}
+              </span>
+              {on && <Check className="absolute top-3 right-3 size-4 text-accent" strokeWidth={3} />}
+            </button>
+          );
+        })}
       </div>
     </section>
   );
 }
+
+const GOAL_META: Record<LearnerGoal, { icon: typeof Target; hint: string }> = {
+  speaking: { icon: MessageCircle, hint: "Chat with confidence" },
+  work: { icon: Briefcase, hint: "Interviews and meetings" },
+  exams: { icon: GraduationCap, hint: "IELTS speaking practice" },
+  grammar: { icon: SpellCheck, hint: "Get the rules right" },
+  vocabulary: { icon: BookOpen, hint: "Learn new words" },
+};
 
 const REASON_ICONS = { goal: Target, weak: Crosshair, level: Gauge, default: Sparkles };
 
