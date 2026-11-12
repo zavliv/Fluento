@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -19,7 +18,6 @@ class UserOut(BaseModel):
     id: str
     name: str
     email: str
-    role: Literal["learner", "admin"]
     created_at: datetime
 
 
@@ -28,10 +26,4 @@ class MeResponse(BaseModel):
 
 
 def user_out(doc: dict) -> UserOut:
-    return UserOut(
-        id=str(doc["_id"]),
-        name=doc["name"],
-        email=doc["email"],
-        role=doc.get("role", "learner"),
-        created_at=doc["created_at"],
-    )
+    return UserOut(id=str(doc["_id"]), name=doc["name"], email=doc["email"], created_at=doc["created_at"])

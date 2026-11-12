@@ -4,7 +4,18 @@ import { messageText } from "./utils";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export type User = { id: string; name: string; email: string; role: "learner" | "admin"; created_at: string };
+export type User = { id: string; name: string; email: string; created_at: string };
+
+export type AdminRole = "owner" | "admin";
+
+export type AdminAccount = {
+  id: string;
+  name: string;
+  email: string;
+  role: AdminRole;
+  created_at: string;
+  last_seen_at: string | null;
+};
 
 export type StoredMessage = {
   id: string;
@@ -112,6 +123,18 @@ export const api = {
     request<{ ok: true }>(`/me/conversations/${teacherId}`, { method: "DELETE" }),
 
   admin: {
+    login: (body: { email: string; password: string }) =>
+      request<AdminAccount>("/admin/auth/login", { method: "POST", json: body }),
+    logout: () => request<{ ok: true }>("/admin/auth/logout", { method: "POST" }),
+    me: () => request<{ admin: AdminAccount | null }>("/admin/auth/me"),
+    changePassword: (body: { current_password: string; new_password: string }) =>
+      request<{ ok: true }>("/admin/auth/password", { method: "PUT", json: body }),
+    team: () => request<AdminAccount[]>("/admin/team"),
+    addMember: (body: { name: string; email: string; password: string; role: AdminRole }) =>
+      request<AdminAccount>("/admin/team", { method: "POST", json: body }),
+    setMemberRole: (id: string, role: AdminRole) =>
+      request<AdminAccount>(`/admin/team/${id}`, { method: "PATCH", json: { role } }),
+    removeMember: (id: string) => request<{ ok: true }>(`/admin/team/${id}`, { method: "DELETE" }),
     stats: () => request<Stats>("/admin/stats"),
     teachers: () => request<AdminTeacher[]>("/admin/teachers"),
     teacher: (id: string) => request<AdminTeacher>(`/admin/teachers/${id}`),
@@ -129,8 +152,7 @@ export const api = {
     settings: () => request<AppSettings>("/admin/settings"),
     saveSettings: (body: AppSettings) => request<AppSettings>("/admin/settings", { method: "PUT", json: body }),
     users: () => request<AdminUser[]>("/admin/users"),
-    setRole: (id: string, role: User["role"]) =>
-      request<{ ok: true }>(`/admin/users/${id}`, { method: "PATCH", json: { role } }),
+    deleteUser: (id: string) => request<{ ok: true }>(`/admin/users/${id}`, { method: "DELETE" }),
     conversations: (filters: { teacherId?: string; userId?: string } = {}) => {
       const params = new URLSearchParams();
       if (filters.teacherId) params.set("teacher_id", filters.teacherId);

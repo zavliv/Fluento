@@ -17,7 +17,6 @@ async def signup(body: SignupRequest, response: Response) -> UserOut:
         "name": body.name.strip(),
         "email": body.email.lower(),
         "password_hash": hash_password(body.password),
-        "role": "learner",
         "teacher_ids": [],
         "created_at": now(),
         "last_seen_at": now(),

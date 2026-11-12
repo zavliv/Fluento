@@ -92,14 +92,6 @@ export function LandingPage({ teachers, user, onSelect, onLogout, theme, onTheme
             {user ? (
               <>
                 <span className="hidden text-sm text-muted sm:inline">Hi, {user.name.split(" ")[0]}</span>
-                {user.role === "admin" && (
-                  <Link
-                    href="/admin"
-                    className="h-9 rounded-xl px-3 text-sm leading-9 font-medium text-muted hover:bg-hover hover:text-ink"
-                  >
-                    Admin
-                  </Link>
-                )}
                 <button
                   type="button"
                   onClick={onLogout}

@@ -1,6 +1,4 @@
 from datetime import datetime
-from typing import Literal
-
 from pydantic import BaseModel
 
 from app.schemas.conversations import StoredMessage
@@ -36,15 +34,10 @@ class AdminUser(BaseModel):
     id: str
     name: str
     email: str
-    role: Literal["learner", "admin"]
     created_at: datetime
     last_seen_at: datetime | None = None
     conversations: int
     messages: int
-
-
-class RoleUpdate(BaseModel):
-    role: Literal["learner", "admin"]
 
 
 class AdminConversationSummary(BaseModel):

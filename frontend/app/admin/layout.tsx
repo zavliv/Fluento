@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { AdminShell } from "@/components/admin/AdminShell";
+import { AdminAuthProvider } from "@/components/admin/AdminAuthProvider";
 
 export const metadata: Metadata = {
-  title: "Admin",
+  title: { default: "Admin", template: "%s · Fluento Admin" },
   robots: { index: false, follow: false },
 };
 
 export const instant = false;
 
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
-  return (
-    <Suspense>
-      <AdminShell>{children}</AdminShell>
-    </Suspense>
-  );
+  return <AdminAuthProvider>{children}</AdminAuthProvider>;
 }

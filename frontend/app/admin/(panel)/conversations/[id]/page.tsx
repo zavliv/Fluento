@@ -1,6 +1,6 @@
 import { ConversationView } from "@/components/admin/ConversationView";
 
-export const metadata = { title: "Conversation · Admin" };
+export const metadata = { title: "Conversation" };
 export const instant = false;
 
 export default async function ConversationPage({ params }: PageProps<"/admin/conversations/[id]">) {

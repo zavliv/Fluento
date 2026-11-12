@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr | None = None
     session_days: int = 30
     cookie_name: str = "fluento_session"
+    admin_cookie_name: str = "fluento_admin_session"
+    admin_session_days: int = 7
     cookie_secure: bool = False
 
     admin_email: str | None = None

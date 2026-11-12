@@ -15,6 +15,7 @@ def now() -> datetime:
 
 async def ensure_indexes() -> None:
     await db.users.create_index("email", unique=True)
+    await db.admins.create_index("email", unique=True)
     await db.teachers.create_index([("order", ASCENDING)])
     await db.rules.create_index([("order", ASCENDING)])
     await db.conversations.create_index([("user_id", ASCENDING), ("teacher_id", ASCENDING)], unique=True)

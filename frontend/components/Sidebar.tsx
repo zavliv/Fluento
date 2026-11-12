@@ -4,7 +4,6 @@ import {
   GraduationCap,
   Keyboard,
   LogOut,
-  LayoutDashboard,
   LayoutGrid,
   Monitor,
   Moon,
@@ -14,7 +13,6 @@ import {
   Sun,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import type { Theme } from "@/hooks/useTheme";
 import type { User } from "@/lib/api";
 import { toSpeakableText } from "@/lib/export";
@@ -202,16 +200,6 @@ export function Sidebar(props: Props) {
               <p className="truncate text-xs text-subtle">{props.user.email}</p>
             </div>
             <div className="flex shrink-0 items-center">
-              {props.user.role === "admin" && (
-                <Link
-                  href="/admin"
-                  aria-label="Admin panel"
-                  data-tip="Admin panel"
-                  className="tip tip-top inline-flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-ink"
-                >
-                  <LayoutDashboard className="size-4" />
-                </Link>
-              )}
               <IconButton label={`Keyboard shortcuts (${shortcut("/")})`} onClick={props.onOpenShortcuts}>
                 <Keyboard />
               </IconButton>

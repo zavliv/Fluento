@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import client
-from app.routers import admin, auth, chat, me, public
+from app.routers import admin, admin_auth, admin_team, auth, chat, me, public
 from app.seed.setup import setup_database
 
 logging.basicConfig(level=logging.INFO)
@@ -29,5 +29,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for router in (public.router, auth.router, me.router, chat.router, admin.router):
+for router in (
+    public.router,
+    auth.router,
+    me.router,
+    chat.router,
+    admin_auth.router,
+    admin_team.router,
+    admin.router,
+):
     app.include_router(router)

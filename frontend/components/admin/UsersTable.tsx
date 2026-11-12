@@ -1,21 +1,21 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useLoad } from "@/hooks/useLoad";
-import { api, type AdminUser, type User } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { useAuth } from "../auth/AuthProvider";
+import { api, type AdminUser } from "@/lib/api";
+import { IconButton } from "../IconButton";
+import { Dialog } from "../ui/Dialog";
 import { useToast } from "../ui/Toast";
-import { EmptyState, ErrorState, formatDate, LoadingState, PageHeader, timeAgo } from "./ui";
+import { Button, EmptyState, ErrorState, formatDate, LoadingState, PageHeader, timeAgo } from "./ui";
 
 export function UsersTable() {
-  const { user: me } = useAuth();
   const toast = useToast();
   const load = useCallback(() => api.admin.users(), []);
   const { data: users, loading, error, reload, setData } = useLoad(load);
   const [query, setQuery] = useState("");
+  const [deleting, setDeleting] = useState<AdminUser | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -23,22 +23,27 @@ export function UsersTable() {
     return (users ?? []).filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
   }, [users, query]);
 
-  const setRole = async (target: AdminUser, role: User["role"]) => {
-    setData((list) => list?.map((u) => (u.id === target.id ? { ...u, role } : u)) ?? null);
+  const remove = async (target: AdminUser) => {
     try {
-      await api.admin.setRole(target.id, role);
-      toast({ message: `${target.name} is now ${role === "admin" ? "an admin" : "a learner"}` });
+      await api.admin.deleteUser(target.id);
+      setData((list) => list?.filter((u) => u.id !== target.id) ?? null);
+      toast({ message: `${target.name}'s account deleted` });
     } catch (err) {
-      setData((list) => list?.map((u) => (u.id === target.id ? target : u)) ?? null);
-      toast({ message: err instanceof Error ? err.message : "Couldn't change the role" });
+      toast({ message: err instanceof Error ? err.message : "Couldn't delete the account" });
+    } finally {
+      setDeleting(null);
     }
   };
 
   return (
     <>
       <PageHeader
-        title="Users"
-        description={users ? `${users.length} account${users.length === 1 ? "" : "s"}` : "Everyone who has signed up."}
+        title="Learners"
+        description={
+          users
+            ? `${users.length} learner account${users.length === 1 ? "" : "s"}`
+            : "Everyone who has signed up to learn."
+        }
         actions={
           <label className="flex h-10 w-64 items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent/50">
             <Search className="size-4 text-subtle" />
@@ -57,23 +62,22 @@ export function UsersTable() {
       ) : error && !users ? (
         <ErrorState message={error} onRetry={reload} />
       ) : !filtered.length ? (
-        <EmptyState title={query ? "No matching users" : "No users yet"} />
+        <EmptyState title={query ? "No matching learners" : "No learners yet"} />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs text-subtle">
-                <th className="px-5 py-3 font-semibold">User</th>
-                <th className="px-3 py-3 font-semibold">Role</th>
+                <th className="px-5 py-3 font-semibold">Learner</th>
                 <th className="px-3 py-3 text-right font-semibold">Conversations</th>
                 <th className="px-3 py-3 text-right font-semibold">Messages</th>
                 <th className="px-3 py-3 font-semibold">Joined</th>
-                <th className="px-5 py-3 font-semibold">Last active</th>
+                <th className="px-3 py-3 font-semibold">Last active</th>
+                <th className="w-12 px-5 py-3" />
               </tr>
             </thead>
             <tbody>
               {filtered.map((u) => {
-                const self = u.id === me?.id;
                 return (
                   <tr key={u.id} className="border-b border-line last:border-0">
                     <td className="px-5 py-3">
@@ -82,28 +86,10 @@ export function UsersTable() {
                           {u.name.charAt(0).toUpperCase()}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-ink">
-                            {u.name}
-                            {self && <span className="ml-1.5 text-xs font-normal text-subtle">(you)</span>}
-                          </p>
+                          <p className="truncate font-medium text-ink">{u.name}</p>
                           <p className="truncate text-xs text-muted">{u.email}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <select
-                        value={u.role}
-                        disabled={self}
-                        title={self ? "You can't change your own role" : undefined}
-                        onChange={(e) => void setRole(u, e.target.value as User["role"])}
-                        className={cn(
-                          "h-8 cursor-pointer rounded-lg border border-line bg-surface px-2 text-xs font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-60",
-                          u.role === "admin" ? "text-accent" : "text-ink",
-                        )}
-                      >
-                        <option value="learner">Learner</option>
-                        <option value="admin">Admin</option>
-                      </select>
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums">
                       {u.conversations ? (
@@ -119,7 +105,12 @@ export function UsersTable() {
                     </td>
                     <td className="px-3 py-3 text-right text-muted tabular-nums">{u.messages}</td>
                     <td className="px-3 py-3 text-muted">{formatDate(u.created_at)}</td>
-                    <td className="px-5 py-3 text-muted">{timeAgo(u.last_seen_at)}</td>
+                    <td className="px-3 py-3 text-muted">{timeAgo(u.last_seen_at)}</td>
+                    <td className="px-5 py-3 text-right">
+                      <IconButton label={`Delete ${u.name}`} onClick={() => setDeleting(u)}>
+                        <Trash2 />
+                      </IconButton>
+                    </td>
                   </tr>
                 );
               })}
@@ -127,6 +118,25 @@ export function UsersTable() {
           </table>
         </div>
       )}
+
+      <Dialog open={deleting !== null} onClose={() => setDeleting(null)} label="Delete learner" className="max-w-md">
+        <div className="p-5">
+          <h2 className="text-[15px] font-semibold">Delete {deleting?.name}&apos;s account?</h2>
+          <p className="mt-1.5 text-sm text-muted">
+            This permanently deletes the account and all of their conversations. It can&apos;t be undone.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              className="border border-danger/40"
+              onClick={() => deleting && void remove(deleting)}
+            >
+              Delete account
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </>
   );
 }

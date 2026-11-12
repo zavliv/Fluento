@@ -52,9 +52,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     if (loading || !user) return;
-    router.replace(
-      next ?? (teacher ? `/?teacher=${encodeURIComponent(teacher)}` : user.role === "admin" ? "/admin" : "/"),
-    );
+    router.replace(next ?? (teacher ? `/?teacher=${encodeURIComponent(teacher)}` : "/"));
   }, [user, loading, next, teacher, router]);
 
   const submit = async (e: FormEvent) => {

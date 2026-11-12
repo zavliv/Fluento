@@ -2,7 +2,7 @@ import { RulesEditor } from "@/components/admin/RulesEditor";
 
 export const instant = false;
 
-export const metadata = { title: "Rules · Admin" };
+export const metadata = { title: "Rules" };
 
 export default function RulesPage() {
   return <RulesEditor />;

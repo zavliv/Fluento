@@ -16,7 +16,7 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 - Streaming replies with Markdown, tables and code blocks
 - Clear or export a conversation, with undo
 - Accounts with email and password sign-up and log-in; conversations are saved to your account
-- Admin panel at `/admin`: live stats, full teacher and persona editor with a prompt preview, shared rules, app and model settings, users and roles, and every learner conversation
+- A separate admin panel at `/admin` with its own team sign-in: live stats, full teacher and persona editor with a prompt preview, shared rules, app and model settings, learners, every learner conversation, and team members with owner and admin roles
 - Command palette (`Cmd/Ctrl + K`) to jump to any teacher, plus a shortcuts dialog (`Cmd/Ctrl + /`)
 - Light, dark and system themes, keyboard shortcuts and a mobile-friendly layout
 
@@ -59,7 +59,7 @@ Fluento/
 
 Get a free API key from [console.groq.com](https://console.groq.com) and a MongoDB connection string (for example a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster), then fill in `backend/.env`.
 
-On first start the backend creates the indexes, seeds the seven teachers, the shared rules and the default settings, and creates an admin account from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Log in with it and open `/admin`.
+On first start the backend creates the indexes, seeds the seven teachers, the shared rules and the default settings, and, if there are no team members yet, creates an owner account from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Sign in with it at `/admin/login`, then add the rest of your team from **Admin → Team**.
 
 ```bash
 cd backend
@@ -83,17 +83,17 @@ Open http://localhost:3000.
 
 Backend settings live in `backend/app/config.py` and are read from `backend/.env`:
 
-| Variable         | Default                     | Description                           |
-| ---------------- | --------------------------- | ------------------------------------- |
-| `GROQ_API_KEY`   | (required)                  | Groq API key                          |
-| `MONGODB_URI`    | (required)                  | MongoDB connection string             |
-| `MONGODB_DB`     | `fluento`                   | Database name                         |
-| `JWT_SECRET`     | (required)                  | Secret for signing session cookies    |
-| `ADMIN_EMAIL`    | (optional)                  | Admin account created on first start  |
-| `ADMIN_PASSWORD` | (optional)                  | Password for that admin account       |
-| `SESSION_DAYS`   | `30`                        | How long a login lasts                |
-| `COOKIE_SECURE`  | `false`                     | Set to `true` when serving over HTTPS |
-| `CORS_ORIGINS`   | `["http://localhost:3000"]` | Allowed frontend origins (JSON list)  |
+| Variable         | Default                     | Description                                           |
+| ---------------- | --------------------------- | ----------------------------------------------------- |
+| `GROQ_API_KEY`   | (required)                  | Groq API key                                          |
+| `MONGODB_URI`    | (required)                  | MongoDB connection string                             |
+| `MONGODB_DB`     | `fluento`                   | Database name                                         |
+| `JWT_SECRET`     | (required)                  | Secret for signing session cookies                    |
+| `ADMIN_EMAIL`    | (optional)                  | First owner account, created when there are no admins |
+| `ADMIN_PASSWORD` | (optional)                  | Password for that first owner                         |
+| `SESSION_DAYS`   | `30`                        | How long a login lasts                                |
+| `COOKIE_SECURE`  | `false`                     | Set to `true` when serving over HTTPS                 |
+| `CORS_ORIGINS`   | `["http://localhost:3000"]` | Allowed frontend origins (JSON list)                  |
 
 The model, temperature, max tokens, history limit, speech-to-text model and sign-up switch are stored in MongoDB and edited from **Admin → Settings**; changes apply without a restart.
 
@@ -101,14 +101,14 @@ The frontend reads `NEXT_PUBLIC_API_URL` (backend address) and `NEXT_PUBLIC_SITE
 
 ## API
 
-| Area   | Endpoints                                                                                                       | Access    |
-| ------ | --------------------------------------------------------------------------------------------------------------- | --------- |
-| Public | `GET /health`, `GET /teachers`, `GET /app-settings`                                                             | Anyone    |
-| Auth   | `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`                                    | Anyone    |
-| Learn  | `POST /chat` (SSE), `POST /transcribe`, `GET/PUT /me/teachers`, `GET/PUT/DELETE /me/conversations/{teacher_id}` | Logged in |
-| Admin  | `/admin/stats`, `/admin/teachers`, `/admin/rules`, `/admin/settings`, `/admin/users`, `/admin/conversations`    | Admins    |
+| Area   | Endpoints                                                                                                                                                   | Access       |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Public | `GET /health`, `GET /teachers`, `GET /app-settings`                                                                                                         | Anyone       |
+| Auth   | `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`                                                                                | Anyone       |
+| Learn  | `POST /chat` (SSE), `POST /transcribe`, `GET/PUT /me/teachers`, `GET/PUT/DELETE /me/conversations/{teacher_id}`                                             | Logged in    |
+| Admin  | `/admin/auth/*` (team sign-in), `/admin/stats`, `/admin/teachers`, `/admin/rules`, `/admin/settings`, `/admin/users`, `/admin/conversations`, `/admin/team` | Team members |
 
-Sessions use an httpOnly JWT cookie. Teacher personas are only returned by the admin API; learners see public profile fields.
+Learners and team members are completely separate: learners are stored in the `users` collection and team members in `admins`, each with their own login and their own httpOnly JWT cookie. Only owners can manage the team. Teacher personas are only returned by the admin API; learners see public profile fields.
 
 ## Streaming protocol
 

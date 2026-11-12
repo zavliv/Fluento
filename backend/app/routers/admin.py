@@ -13,7 +13,6 @@ from app.schemas.admin import (
     AdminConversationSummary,
     AdminUser,
     RecentConversation,
-    RoleUpdate,
     Stats,
     TeacherUsage,
 )
@@ -21,10 +20,10 @@ from app.schemas.conversations import StoredMessage
 from app.schemas.rules import RuleSection, RuleSectionCreate, RuleSectionFields, rule_section
 from app.schemas.settings import AppSettings
 from app.schemas.teachers import TeacherAdmin, TeacherCreate, TeacherFields, teacher_admin
-from app.security import require_admin
+from app.security import current_admin
 from app.services.app_settings import SETTINGS_ID, clear_settings_cache, get_app_settings
 
-router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(current_admin)])
 
 
 def _object_id(value: str) -> ObjectId:
@@ -81,8 +80,8 @@ async def stats() -> Stats:
     counts = {f["_id"]: f["count"] for f in feedback}
 
     return Stats(
-        learners=await db.users.count_documents({"role": "learner"}),
-        new_learners_7d=await db.users.count_documents({"role": "learner", "created_at": {"$gte": week_ago}}),
+        learners=await db.users.count_documents({}),
+        new_learners_7d=await db.users.count_documents({"created_at": {"$gte": week_ago}}),
         conversations=await db.conversations.count_documents({}),
         active_conversations_7d=await db.conversations.count_documents({"updated_at": {"$gte": week_ago}}),
         messages=totals[0]["messages"] if totals else 0,
@@ -235,7 +234,6 @@ async def list_users() -> list[AdminUser]:
             id=str(u["_id"]),
             name=u["name"],
             email=u["email"],
-            role=u.get("role", "learner"),
             created_at=u["created_at"],
             last_seen_at=u.get("last_seen_at"),
             conversations=stats.get(u["_id"], {}).get("conversations", 0),
@@ -245,13 +243,12 @@ async def list_users() -> list[AdminUser]:
     ]
 
 
-@router.patch("/users/{user_id}")
-async def update_user_role(user_id: str, body: RoleUpdate, admin: dict = Depends(require_admin)) -> dict:
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: str) -> dict:
     oid = _object_id(user_id)
-    if oid == admin["_id"] and body.role != "admin":
-        raise HTTPException(status_code=400, detail="You can't remove your own admin access.")
-    if (await db.users.update_one({"_id": oid}, {"$set": {"role": body.role}})).matched_count == 0:
+    if (await db.users.delete_one({"_id": oid})).deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found.")
+    await db.conversations.delete_many({"user_id": oid})
     return {"ok": True}
 
 
