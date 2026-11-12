@@ -77,6 +77,10 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
             <Input value={draft.tagline} onChange={(e) => set("tagline", e.target.value)} />
           </Field>
 
+          <Field label="Sample line" hint="A short line in the teacher's voice, shown on their card.">
+            <Input value={draft.quote} onChange={(e) => set("quote", e.target.value)} />
+          </Field>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Level">
               <Select value={draft.level} onChange={(e) => set("level", e.target.value as TeacherLevel)}>

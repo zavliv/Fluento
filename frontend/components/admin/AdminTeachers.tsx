@@ -17,6 +17,7 @@ const blankTeacher = (): Teacher => ({
   name: "",
   specialty: "",
   tagline: "",
+  quote: "",
   personality: "",
   starters: [],
   tags: [],

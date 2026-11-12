@@ -15,6 +15,7 @@ import { MessageList } from "./MessageList";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
 import { TeacherAvatar } from "./TeacherAvatar";
+import { LandingPage } from "./landing/LandingPage";
 import { TeacherDirectory } from "./TeacherDirectory";
 import { useToast } from "./ui/Toast";
 
@@ -124,6 +125,16 @@ export default function ChatApp() {
     return [...teacherCommands, ...actions];
   }, [teachers, openTeacher, setTheme]);
 
+  if (chat.myTeachers.length === 0 && !active) {
+    return (
+      <>
+        <LandingPage teachers={teachers} onSelect={openTeacher} theme={theme} onThemeChange={setTheme} />
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
+        <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      </>
+    );
+  }
+
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
       <Sidebar
@@ -181,12 +192,7 @@ export default function ChatApp() {
             </div>
           </>
         ) : (
-          <TeacherDirectory
-            teachers={teachers}
-            online={online}
-            myTeacherIds={chat.myTeacherIds}
-            onSelect={openTeacher}
-          />
+          <TeacherDirectory teachers={teachers} myTeacherIds={myTeacherIds} onSelect={openTeacher} />
         )}
       </main>
 
