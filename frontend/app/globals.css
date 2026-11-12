@@ -520,3 +520,16 @@ button {
 .fade-edges {
   mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
 }
+
+/* Teacher conversation */
+
+.teacher-bubble {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line));
+}
+.teacher-bubble .md strong {
+  color: var(--accent);
+}
+.teacher-glow {
+  background: radial-gradient(50% 60% at 50% 40%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+}

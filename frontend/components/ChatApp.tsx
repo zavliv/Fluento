@@ -6,6 +6,7 @@ import { useBackendStatus } from "@/hooks/useBackendStatus";
 import { useTeacherChats } from "@/hooks/useTeacherChats";
 import { useTheme } from "@/hooks/useTheme";
 import { exportConversation } from "@/lib/export";
+import { teacherTheme } from "@/lib/teachers";
 import { shortcut } from "@/lib/utils";
 import { ChatHeader } from "./ChatHeader";
 import { CommandPalette, type Command } from "./CommandPalette";
@@ -125,9 +126,11 @@ export default function ChatApp() {
         online={online}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="flex min-w-0 flex-1 flex-col" style={active ? teacherTheme(active.color) : undefined}>
         <ChatHeader
           teacher={active}
+          online={online}
+          typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
@@ -141,7 +144,9 @@ export default function ChatApp() {
             <MessageList
               key={active.id}
               teacher={active}
+              online={online}
               messages={messages}
+              onSend={chat.send}
               isStreaming={isStreaming}
               onRegenerate={chat.regenerate}
               onEdit={chat.editMessage}
@@ -159,7 +164,7 @@ export default function ChatApp() {
             </div>
           </>
         ) : (
-          <TeacherDirectory teachers={teachers} lastMessage={chat.lastMessage} onSelect={openTeacher} />
+          <TeacherDirectory teachers={teachers} online={online} lastMessage={chat.lastMessage} onSelect={openTeacher} />
         )}
       </main>
 

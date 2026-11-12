@@ -116,7 +116,13 @@ export function Sidebar(props: Props) {
                     )}
                   >
                     {active && <span className="absolute top-2.5 bottom-2.5 left-0 w-[3px] rounded-full bg-accent" />}
-                    <TeacherAvatar name={teacher.name} color={teacher.color} size={36} />
+                    <TeacherAvatar
+                      name={teacher.name}
+                      color={teacher.color}
+                      size={36}
+                      ring={active ? "var(--hover)" : "var(--sidebar)"}
+                      presence={props.online === null ? null : props.online ? "online" : "offline"}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
                         <span className={cn("truncate text-sm text-ink", active ? "font-semibold" : "font-medium")}>
@@ -214,7 +220,13 @@ function Rail({
               teacher.id === activeId ? "ring-2 ring-accent" : "opacity-80 hover:opacity-100",
             )}
           >
-            <TeacherAvatar name={teacher.name} color={teacher.color} size={34} />
+            <TeacherAvatar
+              name={teacher.name}
+              color={teacher.color}
+              size={34}
+              ring="var(--sidebar)"
+              presence={online === null ? null : online ? "online" : "offline"}
+            />
           </button>
         ))}
       </div>

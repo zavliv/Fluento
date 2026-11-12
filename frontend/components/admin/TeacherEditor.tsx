@@ -128,6 +128,14 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
             <Textarea rows={2} value={draft.personality} onChange={(e) => set("personality", e.target.value)} />
           </Field>
 
+          <Field label="Conversation starters" hint="One per line. Shown as tap-to-send prompts in a new conversation.">
+            <Textarea
+              rows={3}
+              value={draft.starters.join("\n")}
+              onChange={(e) => set("starters", e.target.value.split("\n"))}
+            />
+          </Field>
+
           <div className="flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
             <Bot className="mt-0.5 size-4 shrink-0 text-accent" />
             <p className="text-muted">
@@ -157,7 +165,11 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
           )}
           <div className="flex gap-2">
             <Button onClick={onClose}>Cancel</Button>
-            <Button variant="primary" disabled={!canSave} onClick={() => onSave(draft)}>
+            <Button
+              variant="primary"
+              disabled={!canSave}
+              onClick={() => onSave({ ...draft, starters: draft.starters.map((s) => s.trim()).filter(Boolean) })}
+            >
               {isNew ? "Add teacher" : "Save changes"}
             </Button>
           </div>

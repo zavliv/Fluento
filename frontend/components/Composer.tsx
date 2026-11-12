@@ -202,7 +202,7 @@ export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder =
                     }}
                     aria-label="Speak your message"
                     title="Speak your message"
-                    className="flex size-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-ink"
+                    className="flex size-9 items-center justify-center rounded-full bg-accent-soft text-accent transition-all hover:scale-105 active:scale-95"
                   >
                     <Mic className="size-[18px]" />
                   </button>

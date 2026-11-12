@@ -5,15 +5,17 @@ import { toSpeakableText } from "@/lib/export";
 import type { Teacher } from "@/lib/teachers";
 import type { Message } from "@/lib/types";
 import { greeting, messageText } from "@/lib/utils";
+import { PresenceStatus } from "./PresenceStatus";
 import { TeacherAvatar } from "./TeacherAvatar";
 
 type Props = {
   teachers: Teacher[];
+  online: boolean | null;
   lastMessage: (teacherId: string) => Message | null;
   onSelect: (teacherId: string) => void;
 };
 
-export function TeacherDirectory({ teachers, lastMessage, onSelect }: Props) {
+export function TeacherDirectory({ teachers, online, lastMessage, onSelect }: Props) {
   return (
     <div className="relative min-h-0 flex-1 overflow-y-auto">
       <div className="hero-glow pointer-events-none absolute inset-x-0 top-0 h-[420px]" aria-hidden />
@@ -47,9 +49,18 @@ export function TeacherDirectory({ teachers, lastMessage, onSelect }: Props) {
                 }
               >
                 <div className="flex items-center gap-3.5">
-                  <TeacherAvatar name={teacher.name} color={teacher.color} size={48} />
+                  <TeacherAvatar
+                    name={teacher.name}
+                    color={teacher.color}
+                    size={48}
+                    ring="var(--surface)"
+                    presence={online === null ? null : online ? "online" : "offline"}
+                  />
                   <div className="min-w-0">
-                    <p className="text-[17px] font-bold tracking-tight text-ink">{teacher.name}</p>
+                    <p className="flex items-center gap-2">
+                      <span className="text-[17px] font-bold tracking-tight text-ink">{teacher.name}</span>
+                      <PresenceStatus online={online} className="text-xs font-medium" />
+                    </p>
                     <p className="truncate text-sm font-medium" style={{ color: teacher.color }}>
                       {teacher.specialty}
                     </p>

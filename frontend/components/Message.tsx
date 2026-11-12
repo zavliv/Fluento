@@ -149,17 +149,21 @@ export function AssistantMessage({
           <span className="text-xs text-subtle">{formatTime(message.createdAt)}</span>
         </div>
 
-        {streaming && message.parts.length === 0 && <ThinkingIndicator />}
+        {(streaming || message.parts.length > 0) && (
+          <div className="teacher-bubble w-fit max-w-full rounded-2xl rounded-tl-md px-4 py-3">
+            {streaming && message.parts.length === 0 && <ThinkingIndicator label={`${teacher.name} is typing`} />}
 
-        {message.parts.map((part, i) =>
-          part.type === "tool" ? (
-            <ToolCallCard key={part.id} part={part} />
-          ) : (
-            <Markdown key={i} text={part.text} streaming={streaming && i === message.parts.length - 1} />
-          ),
+            {message.parts.map((part, i) =>
+              part.type === "tool" ? (
+                <ToolCallCard key={part.id} part={part} />
+              ) : (
+                <Markdown key={i} text={part.text} streaming={streaming && i === message.parts.length - 1} />
+              ),
+            )}
+
+            {waitingAfterTool && <ThinkingIndicator label="Working" />}
+          </div>
         )}
-
-        {waitingAfterTool && <ThinkingIndicator label="Working" />}
 
         {message.status === "error" && (
           <div className="mt-3 flex items-start gap-3 rounded-xl border border-danger/25 bg-danger/6 px-3.5 py-3 text-sm">

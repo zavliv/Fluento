@@ -3,11 +3,14 @@
 import { Download, Ellipsis, LayoutGrid, PanelLeft, RotateCcw, Sparkles } from "lucide-react";
 import type { Teacher } from "@/lib/teachers";
 import { IconButton } from "./IconButton";
+import { PresenceStatus } from "./PresenceStatus";
 import { TeacherAvatar } from "./TeacherAvatar";
 import { Menu } from "./ui/Menu";
 
 type Props = {
   teacher: Teacher | null;
+  online: boolean | null;
+  typing: boolean;
   sidebarOpen: boolean;
   model: string | null;
   onToggleSidebar: () => void;
@@ -16,7 +19,7 @@ type Props = {
   onClear: () => void;
 };
 
-export function ChatHeader({ teacher, sidebarOpen, model, ...actions }: Props) {
+export function ChatHeader({ teacher, online, typing, sidebarOpen, model, ...actions }: Props) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line/70 px-2.5 md:px-4">
       <div className="flex min-w-0 items-center gap-1">
@@ -35,11 +38,18 @@ export function ChatHeader({ teacher, sidebarOpen, model, ...actions }: Props) {
 
         {teacher ? (
           <div className="ml-1.5 flex min-w-0 items-center gap-2.5">
-            <TeacherAvatar name={teacher.name} color={teacher.color} size={32} />
+            <TeacherAvatar
+              name={teacher.name}
+              color={teacher.color}
+              size={32}
+              presence={online === null ? null : online ? "online" : "offline"}
+            />
             <div className="min-w-0 leading-tight">
               <h2 className="truncate text-sm font-semibold text-ink">{teacher.name}</h2>
-              <p className="truncate text-xs text-muted">
-                {teacher.specialty} · {teacher.level}
+              <p className="flex items-center gap-1.5 truncate text-xs text-muted">
+                <PresenceStatus online={online} typing={typing} />
+                {(online !== null || typing) && <span className="text-subtle">·</span>}
+                <span className="truncate">{teacher.specialty}</span>
               </p>
             </div>
           </div>
