@@ -2,6 +2,7 @@
 
 import {
   Download,
+  LayoutDashboard,
   Ellipsis,
   Keyboard,
   Monitor,
@@ -16,6 +17,7 @@ import {
   Sun,
   Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import type { Theme } from "@/hooks/useTheme";
 import { API_URL } from "@/lib/api";
@@ -23,6 +25,7 @@ import type { Conversation } from "@/lib/types";
 import { cn, groupConversations, modKey, shortcut } from "@/lib/utils";
 import { IconButton } from "./IconButton";
 import { LogoMark } from "./Logo";
+import { Wordmark } from "./Wordmark";
 import { Menu } from "./ui/Menu";
 
 type ConversationActions = {
@@ -141,9 +144,19 @@ export function Sidebar(props: Props) {
         <footer className="space-y-3 border-t border-line p-3">
           <div className="flex items-center justify-between gap-2">
             <BackendStatus online={props.online} />
-            <IconButton label={`Keyboard shortcuts (${shortcut("/")})`} onClick={props.onOpenShortcuts}>
-              <Keyboard />
-            </IconButton>
+            <div className="flex items-center gap-0.5">
+              <IconButton label={`Keyboard shortcuts (${shortcut("/")})`} onClick={props.onOpenShortcuts}>
+                <Keyboard />
+              </IconButton>
+              <Link
+                href="/admin"
+                aria-label="Admin panel"
+                data-tip="Admin panel"
+                className="tip tip-top inline-flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-ink"
+              >
+                <LayoutDashboard className="size-4" />
+              </Link>
+            </div>
           </div>
           <ThemeSwitch theme={props.theme} onChange={props.onThemeChange} />
         </footer>
@@ -151,17 +164,6 @@ export function Sidebar(props: Props) {
 
       {!open && <Rail {...props} />}
     </>
-  );
-}
-
-function Wordmark() {
-  return (
-    <span className="flex items-center gap-1.5 select-none">
-      <span className="text-[19px] leading-none font-bold tracking-[-0.03em] text-ink">Orbit</span>
-      <span className="rounded-md bg-accent-soft px-1.5 py-[3px] text-[10.5px] leading-none font-bold tracking-wide text-accent">
-        AI
-      </span>
-    </span>
   );
 }
 
