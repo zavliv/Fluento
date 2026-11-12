@@ -18,7 +18,7 @@ async def system_prompt_for(teacher: dict, user: dict | None = None) -> str:
     learner = ""
     if user is not None:
         memory = await db.memories.find_one({"_id": user["_id"]}) if await memory_active(user) else None
-        learner = render_learner(user.get("name"), memory)
+        learner = render_learner(user.get("name"), memory, (user.get("level") or {}).get("level"))
     return build_system_prompt(teacher, rules, app_name, others, learner)
 
 

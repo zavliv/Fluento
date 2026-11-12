@@ -5,7 +5,77 @@ import { messageText } from "./utils";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export type User = { id: string; name: string; email: string; created_at: string };
+export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+
+export const CEFR_LEVELS: CefrLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
+
+export const LEVEL_NAMES: Record<CefrLevel, string> = {
+  A1: "Beginner",
+  A2: "Elementary",
+  B1: "Intermediate",
+  B2: "Upper intermediate",
+  C1: "Advanced",
+  C2: "Proficient",
+};
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+  level?: CefrLevel | null;
+  level_tested_at?: string | null;
+};
+
+export type SkillScores = { grammar: CefrLevel; vocabulary: CefrLevel; fluency: CefrLevel; comprehension: CefrLevel };
+
+export type LevelResult = {
+  level: CefrLevel;
+  scores: SkillScores;
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  recommended_teacher_id: string | null;
+  recommendation_reason: string;
+};
+
+export type LevelTest = {
+  id: string;
+  status: "in_progress" | "completed";
+  question_count: number;
+  answered: number;
+  messages: { role: "examiner" | "learner"; content: string }[];
+  result: LevelResult | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export type LevelTestState = {
+  config: { enabled: boolean; question_count: number };
+  current: LevelTest | null;
+  latest: LevelTest | null;
+};
+
+export type LevelTestConfig = {
+  enabled: boolean;
+  question_count: number;
+  examiner_prompt: string;
+  grading_prompt: string;
+};
+
+export type AdminLevelTests = {
+  distribution: Record<CefrLevel, number>;
+  tests: {
+    id: string;
+    user_id: string;
+    user_name: string;
+    user_email: string;
+    level: CefrLevel;
+    scores: SkillScores;
+    recommended_teacher_id: string | null;
+    completed_at: string;
+  }[];
+};
 
 export type AdminRole = "owner" | "admin";
 
@@ -43,8 +113,6 @@ export type AppSettings = {
   memory_enabled: boolean;
   mistakes_enabled: boolean;
 };
-
-export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 
 export type MemoryMistake = { pattern: string; example: string; correction: string; count: number };
 
@@ -196,6 +264,12 @@ export const api = {
     return request<Mistake[]>(`/me/mistakes?${params}`);
   },
   mistakeSummary: () => request<MistakeSummary>("/me/mistakes/summary"),
+  levelTest: () => request<LevelTestState>("/me/level-test"),
+  startLevelTest: () => request<LevelTest>("/me/level-test", { method: "POST" }),
+  answerLevelTest: (id: string, text: string) =>
+    request<LevelTest>(`/me/level-test/${id}/answer`, { method: "POST", json: { text } }),
+  gradeLevelTest: (id: string) => request<LevelTest>(`/me/level-test/${id}/grade`, { method: "POST" }),
+  cancelLevelTest: (id: string) => request<{ ok: true }>(`/me/level-test/${id}`, { method: "DELETE" }),
   setMistakeMastered: (id: string, mastered: boolean) =>
     request<Mistake>(`/me/mistakes/${id}`, { method: "PATCH", json: { mastered } }),
   deleteMistake: (id: string) => request<{ ok: true }>(`/me/mistakes/${id}`, { method: "DELETE" }),
@@ -214,6 +288,12 @@ export const api = {
       request<AdminAccount>(`/admin/team/${id}`, { method: "PATCH", json: { role } }),
     removeMember: (id: string) => request<{ ok: true }>(`/admin/team/${id}`, { method: "DELETE" }),
     stats: () => request<Stats>("/admin/stats"),
+    levelTestConfig: () => request<LevelTestConfig>("/admin/level-test/config"),
+    saveLevelTestConfig: (body: LevelTestConfig) =>
+      request<LevelTestConfig>("/admin/level-test/config", { method: "PUT", json: body }),
+    resetLevelTestConfig: () => request<LevelTestConfig>("/admin/level-test/config/reset", { method: "POST" }),
+    levelTests: () => request<AdminLevelTests>("/admin/level-tests"),
+    levelTestDetail: (id: string) => request<LevelTest>(`/admin/level-tests/${id}`),
     teachers: () => request<AdminTeacher[]>("/admin/teachers"),
     teacher: (id: string) => request<AdminTeacher>(`/admin/teachers/${id}`),
     createTeacher: (body: AdminTeacher) => request<AdminTeacher>("/admin/teachers", { method: "POST", json: body }),

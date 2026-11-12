@@ -22,3 +22,5 @@ async def ensure_indexes() -> None:
     await db.conversations.create_index([("updated_at", DESCENDING)])
     await db.mistakes.create_index([("user_id", ASCENDING), ("mastered", ASCENDING), ("created_at", DESCENDING)])
     await db.mistakes.create_index([("user_id", ASCENDING), ("message_id", ASCENDING)])
+    await db.level_tests.create_index([("user_id", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)])
+    await db.level_tests.create_index([("completed_at", DESCENDING)])

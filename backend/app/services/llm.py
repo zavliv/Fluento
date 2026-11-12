@@ -44,3 +44,21 @@ async def stream_completion(
         return
 
     yield {"type": "done"}
+
+
+async def complete(
+    system_prompt: str,
+    messages: list[dict],
+    temperature: float = 0.3,
+    max_tokens: int = 1024,
+    json_mode: bool = False,
+) -> str:
+    app_settings = await get_app_settings()
+    response = await client.chat.completions.create(
+        model=app_settings["llm_model"],
+        messages=[{"role": "system", "content": system_prompt}, *messages],
+        temperature=temperature,
+        max_completion_tokens=max_tokens,
+        **({"response_format": {"type": "json_object"}} if json_mode else {}),
+    )
+    return response.choices[0].message.content or ""

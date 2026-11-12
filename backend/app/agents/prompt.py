@@ -25,14 +25,19 @@ def render_rules(sections: list[dict], values: dict[str, str]) -> str:
     return "\n\n".join(blocks)
 
 
-def render_learner(name: str | None, memory: dict | None) -> str:
-    if not name and not memory:
+def render_learner(name: str | None, memory: dict | None, tested_level: str | None = None) -> str:
+    if not name and not memory and not tested_level:
         return ""
     lines = [f"- Name: {name}"] if name else []
+    if tested_level:
+        lines.append(
+            f"- Level from their placement test: {tested_level} (CEFR). Pitch your English at this level "
+            "and adjust if they clearly find it too easy or too hard."
+        )
     if memory:
         if memory.get("summary"):
             lines.append(f"- Summary: {memory['summary']}")
-        if memory.get("level"):
+        if memory.get("level") and not tested_level:
             lines.append(f"- Estimated level: {memory['level']} (CEFR)")
         for key, label in (
             ("goals", "Goals"),
@@ -48,7 +53,7 @@ def render_learner(name: str | None, memory: dict | None) -> str:
             for m in mistakes[:6]:
                 example = f' (they wrote "{m["example"]}", correct: "{m["correction"]}")' if m.get("example") else ""
                 lines.append(f"  - {m['pattern']}{example}, seen {m.get('count', 1)}x")
-    has_memory = bool(memory) and len(lines) > (1 if name else 0)
+    has_memory = bool(memory) and len(lines) > (1 if name else 0) + (1 if tested_level else 0)
     guidance = (
         "This is what you remember from earlier conversations, including ones with other teachers. "
         "Use it naturally, like a teacher who knows their student: bring up their goals and interests, "

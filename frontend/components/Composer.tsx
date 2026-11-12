@@ -13,11 +13,19 @@ type Props = {
   isStreaming: boolean;
   autoFocus?: boolean;
   placeholder?: string;
+  hint?: string;
 };
 
 const MAX_HEIGHT = 220;
 
-export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder = "Type your message…" }: Props) {
+export function Composer({
+  onSend,
+  onStop,
+  isStreaming,
+  autoFocus,
+  placeholder = "Type your message…",
+  hint = "Your teacher corrects your English as you go. AI can make mistakes.",
+}: Props) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   const textBeforeVoice = useRef("");
@@ -247,7 +255,7 @@ export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder =
         </div>
       </div>
 
-      <StatusLine error={voice.error} state={voice.state} live={liveListening} />
+      <StatusLine error={voice.error} state={voice.state} live={liveListening} hint={hint} />
     </div>
   );
 }
@@ -273,7 +281,17 @@ function LiveIndicator({ elapsed, levels }: { elapsed: number; levels: number[] 
   );
 }
 
-function StatusLine({ error, state, live }: { error: string | null; state: string; live: boolean }) {
+function StatusLine({
+  error,
+  state,
+  live,
+  hint,
+}: {
+  error: string | null;
+  state: string;
+  live: boolean;
+  hint: string;
+}) {
   if (error) {
     return (
       <p className="mt-2 text-center text-xs text-danger" role="alert">
@@ -286,6 +304,6 @@ function StatusLine({ error, state, live }: { error: string | null; state: strin
       ? live
         ? "Words appear as you speak. Press Enter when done, or Esc to cancel."
         : "Recording… press Enter to finish, or Esc to cancel."
-      : "Your teacher corrects your English as you go. AI can make mistakes.";
+      : hint;
   return <p className="mt-2 text-center text-xs text-subtle">{message}</p>;
 }

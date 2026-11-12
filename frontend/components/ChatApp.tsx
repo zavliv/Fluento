@@ -1,6 +1,6 @@
 "use client";
 
-import { Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, SpellCheck, Sun } from "lucide-react";
+import { ClipboardCheck, Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, SpellCheck, Sun } from "lucide-react";
 import { LoaderCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +16,7 @@ import { ChatHeader } from "./ChatHeader";
 import { CommandPalette, type Command } from "./CommandPalette";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
+import { LevelTestPage } from "./level/LevelTestPage";
 import { MistakesPage } from "./mistakes/MistakesPage";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
@@ -29,7 +30,7 @@ import { useToast } from "./ui/Toast";
 const isMobile = () => window.innerWidth < 768;
 
 export default function ChatApp() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, refresh: refreshUser } = useAuth();
   const { teachers, loading: teachersLoading, reload: reloadTeachers } = useTeachers();
   const chat = useTeacherChats(teachers, Boolean(user), reloadTeachers);
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function ChatApp() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { active, messages, select, stop, isStreaming, clear, restore } = chat;
   const { myTeacherIds, addTeacher, removeTeacher } = chat;
-  const [view, setView] = useState<"chat" | "mistakes">("chat");
+  const [view, setView] = useState<"chat" | "mistakes" | "level">("chat");
   const practice = useRef<{ teacherId: string; text: string } | null>(null);
   const mistakes = useMistakeSummary(Boolean(user), isStreaming);
 
@@ -76,6 +77,12 @@ export default function ChatApp() {
     mistakes.refresh();
     if (isMobile()) setSidebarOpen(false);
   }, [select, mistakes]);
+
+  const openLevelTest = useCallback(() => {
+    setView("level");
+    select(null);
+    if (isMobile()) setSidebarOpen(false);
+  }, [select]);
 
   const practise = useCallback(
     (m: { rule: string; original: string; correction: string; teacher_id?: string }) => {
@@ -178,6 +185,7 @@ export default function ChatApp() {
         run: () => setShortcutsOpen(true),
       },
       { id: "mistakes", label: "My mistakes", group: "Actions", icon: <SpellCheck />, run: openMistakes },
+      { id: "level", label: "Level test", group: "Actions", icon: <ClipboardCheck />, run: openLevelTest },
     ];
     const teacherCommands: Command[] = teachers.map((t) => ({
       id: `teacher-${t.id}`,
@@ -187,7 +195,7 @@ export default function ChatApp() {
       run: () => openTeacher(t.id),
     }));
     return [...teacherCommands, ...actions];
-  }, [teachers, openTeacher, openMistakes, setTheme]);
+  }, [teachers, openTeacher, openMistakes, openLevelTest, setTheme]);
 
   if (authLoading || teachersLoading || (user && !chat.ready)) {
     return (
@@ -231,6 +239,8 @@ export default function ChatApp() {
         mistakesOpen={view === "mistakes"}
         mistakeCount={mistakes.summary?.open ?? null}
         onOpenMistakes={openMistakes}
+        levelOpen={view === "level"}
+        onOpenLevelTest={openLevelTest}
         theme={theme}
         onThemeChange={setTheme}
         online={online}
@@ -245,14 +255,16 @@ export default function ChatApp() {
           typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
-          title={view === "mistakes" ? "My mistakes" : undefined}
+          title={view === "mistakes" ? "My mistakes" : view === "level" ? "Level test" : undefined}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onShowTeachers={() => openTeacher(null)}
           onExport={exportCurrent}
           onClear={clearConversation}
         />
 
-        {view === "mistakes" && !active ? (
+        {view === "level" && !active ? (
+          <LevelTestPage teachers={teachers} onOpenTeacher={openTeacher} onCompleted={() => void refreshUser()} />
+        ) : view === "mistakes" && !active ? (
           <MistakesPage
             teachers={teachers}
             summary={mistakes.summary}
@@ -297,6 +309,8 @@ export default function ChatApp() {
             myTeacherIds={myTeacherIds}
             onSelect={openTeacher}
             userName={user.name}
+            level={user.level ?? null}
+            onOpenLevelTest={openLevelTest}
           />
         )}
       </main>

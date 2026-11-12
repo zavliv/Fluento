@@ -19,12 +19,23 @@ from app.schemas.admin import (
 )
 from app.schemas.conversations import StoredMessage
 from app.schemas.memory import MemoryResponse
+from app.schemas.level_test import (
+    LEVELS,
+    AdminLevelTest,
+    AdminLevelTests,
+    LevelTestConfig,
+    LevelTestOut,
+    level_test_out,
+)
 from app.schemas.rules import RuleSection, RuleSectionCreate, RuleSectionFields, rule_section
 from app.schemas.settings import AppSettings
 from app.schemas.teachers import TeacherAdmin, TeacherCreate, TeacherFields, teacher_admin
 from app.security import current_admin
 from app.services.pending import answer_pending
 from app.services.tasks import run_in_background
+from app.services.level_test import DEFAULT_CONFIG as DEFAULT_LEVEL_TEST_CONFIG
+from app.services.level_test import get_config as get_level_test_config
+from app.services.level_test import save_config as save_level_test_config
 from app.services.app_settings import SETTINGS_ID, clear_settings_cache, get_app_settings
 from app.services.memory import get_memory
 
@@ -265,6 +276,7 @@ async def delete_user(user_id: str) -> dict:
     await db.conversations.delete_many({"user_id": oid})
     await db.mistakes.delete_many({"user_id": oid})
     await db.memories.delete_one({"_id": oid})
+    await db.level_tests.delete_many({"user_id": oid})
     return {"ok": True}
 
 
@@ -332,3 +344,57 @@ async def delete_conversation(conversation_id: str) -> dict:
     if (await db.conversations.delete_one({"_id": _object_id(conversation_id)})).deleted_count == 0:
         raise HTTPException(status_code=404, detail="Conversation not found.")
     return {"ok": True}
+
+
+# Level test
+
+
+@router.get("/level-test/config")
+async def read_level_test_config() -> LevelTestConfig:
+    return await get_level_test_config()
+
+
+@router.put("/level-test/config")
+async def write_level_test_config(body: LevelTestConfig) -> LevelTestConfig:
+    return await save_level_test_config(body)
+
+
+@router.post("/level-test/config/reset")
+async def reset_level_test_config() -> LevelTestConfig:
+    return await save_level_test_config(DEFAULT_LEVEL_TEST_CONFIG)
+
+
+@router.get("/level-tests")
+async def list_level_tests() -> AdminLevelTests:
+    docs = await db.level_tests.find({"status": "completed"}).sort("completed_at", -1).limit(200).to_list()
+    users = {u["_id"]: u for u in await db.users.find({"_id": {"$in": [d["user_id"] for d in docs]}}).to_list()}
+    distribution = {level: 0 for level in LEVELS}
+    latest_per_user: set = set()
+    for d in docs:
+        if d["user_id"] not in latest_per_user:
+            latest_per_user.add(d["user_id"])
+            distribution[d["result"]["level"]] += 1
+    return AdminLevelTests(
+        distribution=distribution,
+        tests=[
+            AdminLevelTest(
+                id=str(d["_id"]),
+                user_id=str(d["user_id"]),
+                user_name=users.get(d["user_id"], {}).get("name", "Deleted user"),
+                user_email=users.get(d["user_id"], {}).get("email", ""),
+                level=d["result"]["level"],
+                scores=d["result"]["scores"],
+                recommended_teacher_id=d["result"].get("recommended_teacher_id"),
+                completed_at=d["completed_at"],
+            )
+            for d in docs
+        ],
+    )
+
+
+@router.get("/level-tests/{test_id}")
+async def get_level_test(test_id: str) -> LevelTestOut:
+    doc = await db.level_tests.find_one({"_id": _object_id(test_id)})
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Test not found.")
+    return level_test_out(doc)

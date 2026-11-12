@@ -1,10 +1,11 @@
 "use client";
 
 import {
+  ClipboardCheck,
   GraduationCap,
   Keyboard,
-  LogOut,
   LayoutGrid,
+  LogOut,
   Monitor,
   Moon,
   PanelLeft,
@@ -40,6 +41,8 @@ type Props = {
   mistakesOpen: boolean;
   mistakeCount: number | null;
   onOpenMistakes: () => void;
+  levelOpen: boolean;
+  onOpenLevelTest: () => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   online: boolean | null;
@@ -119,6 +122,26 @@ export function Sidebar(props: Props) {
                 {props.mistakeCount}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={props.onOpenLevelTest}
+            aria-current={props.levelOpen ? "page" : undefined}
+            className={cn(
+              "flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-sm transition-colors",
+              props.levelOpen ? "bg-hover font-semibold text-ink" : "text-muted hover:bg-hover/70 hover:text-ink",
+            )}
+          >
+            <ClipboardCheck className="size-4" />
+            Level test
+            <span
+              className={cn(
+                "ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                props.user.level ? "bg-ink text-bg" : "bg-hover text-muted",
+              )}
+            >
+              {props.user.level ?? "Take it"}
+            </span>
           </button>
         </div>
 
@@ -255,6 +278,7 @@ function Rail({
   onOpenShortcuts,
   onOpenMistakes,
   mistakeCount,
+  onOpenLevelTest,
 }: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
@@ -296,6 +320,9 @@ function Rail({
             </span>
           )}
         </span>
+        <IconButton label="Level test" tooltip="right" onClick={onOpenLevelTest} className={railButton}>
+          <ClipboardCheck />
+        </IconButton>
       </div>
 
       <div className="mx-auto my-3 h-px w-7 bg-line" />

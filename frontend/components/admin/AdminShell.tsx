@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ClipboardCheck,
   ExternalLink,
   GraduationCap,
   LayoutDashboard,
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/teachers", label: "Teachers", icon: GraduationCap },
   { href: "/admin/rules", label: "Rules", icon: ScrollText },
+  { href: "/admin/level-test", label: "Level test", icon: ClipboardCheck },
   { href: "/admin/conversations", label: "Conversations", icon: MessagesSquare },
   { href: "/admin/users", label: "Learners", icon: Users },
   { href: "/admin/team", label: "Team", icon: UserCog },
