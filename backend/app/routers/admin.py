@@ -17,11 +17,13 @@ from app.schemas.admin import (
     TeacherUsage,
 )
 from app.schemas.conversations import StoredMessage
+from app.schemas.memory import MemoryResponse
 from app.schemas.rules import RuleSection, RuleSectionCreate, RuleSectionFields, rule_section
 from app.schemas.settings import AppSettings
 from app.schemas.teachers import TeacherAdmin, TeacherCreate, TeacherFields, teacher_admin
 from app.security import current_admin
 from app.services.app_settings import SETTINGS_ID, clear_settings_cache, get_app_settings
+from app.services.memory import get_memory
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(current_admin)])
 
@@ -249,7 +251,20 @@ async def delete_user(user_id: str) -> dict:
     if (await db.users.delete_one({"_id": oid})).deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found.")
     await db.conversations.delete_many({"user_id": oid})
+    await db.memories.delete_one({"_id": oid})
     return {"ok": True}
+
+
+@router.get("/users/{user_id}/memory")
+async def user_memory(user_id: str) -> MemoryResponse:
+    user = await db.users.find_one({"_id": _object_id(user_id)})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return MemoryResponse(
+        enabled=user.get("memory_enabled", True),
+        available=(await get_app_settings())["memory_enabled"],
+        memory=await get_memory(user["_id"]),
+    )
 
 
 # Conversations

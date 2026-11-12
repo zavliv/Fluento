@@ -2,6 +2,7 @@
 
 import {
   GraduationCap,
+  Brain,
   Keyboard,
   LogOut,
   LayoutGrid,
@@ -36,6 +37,7 @@ type Props = {
   onRemove: (teacherId: string) => void;
   onOpenPalette: () => void;
   onOpenShortcuts: () => void;
+  onOpenMemory: () => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   online: boolean | null;
@@ -200,6 +202,9 @@ export function Sidebar(props: Props) {
               <p className="truncate text-xs text-subtle">{props.user.email}</p>
             </div>
             <div className="flex shrink-0 items-center">
+              <IconButton label="What your teachers remember" onClick={props.onOpenMemory}>
+                <Brain />
+              </IconButton>
               <IconButton label={`Keyboard shortcuts (${shortcut("/")})`} onClick={props.onOpenShortcuts}>
                 <Keyboard />
               </IconButton>
@@ -227,6 +232,7 @@ function Rail({
   theme,
   onThemeChange,
   onOpenShortcuts,
+  onOpenMemory,
 }: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
@@ -299,6 +305,9 @@ function Rail({
       </nav>
 
       <div className="mt-auto flex flex-col items-center gap-1 border-t border-line/70 py-3">
+        <IconButton label="What your teachers remember" tooltip="right" onClick={onOpenMemory} className={railButton}>
+          <Brain />
+        </IconButton>
         <IconButton label="Keyboard shortcuts" tooltip="right" onClick={onOpenShortcuts} className={railButton}>
           <Keyboard />
         </IconButton>

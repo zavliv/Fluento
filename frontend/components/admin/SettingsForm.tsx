@@ -139,6 +139,27 @@ function Form({ initial, teachers }: { initial: AppSettings; teachers: AdminTeac
           </div>
         </Card>
 
+        <Card
+          title="Learner memory"
+          description="Teachers remember each learner's goals, interests and recurring mistakes."
+        >
+          <div className="p-5">
+            <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-ink">Remember learners between conversations</p>
+                <p className="text-xs text-muted">
+                  Updated in the background every few messages. Learners can view, edit or turn off their own memory.
+                </p>
+              </div>
+              <Switch
+                checked={draft.memory_enabled}
+                onChange={(v) => set("memory_enabled", v)}
+                label="Remember learners between conversations"
+              />
+            </div>
+          </div>
+        </Card>
+
         <Card title="Speech to text" description="Used when the browser can't transcribe speech itself.">
           <div className="p-5">
             <Field label="Whisper model">

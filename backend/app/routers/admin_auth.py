@@ -3,7 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from app.db import db, now
 from app.schemas.auth import LoginRequest
 from app.schemas.team import AdminMe, AdminOut, PasswordChange, admin_out
-from app.security import clear_session, create_session, current_admin, hash_password, optional_admin, verify_password
+from app.security import (
+    clear_session,
+    create_session,
+    current_admin,
+    hash_password,
+    optional_admin,
+    verify_password,
+)
 
 router = APIRouter(prefix="/admin/auth", tags=["admin auth"])
 
@@ -33,5 +40,8 @@ async def me(admin: dict | None = Depends(optional_admin)) -> AdminMe:
 async def change_password(body: PasswordChange, admin: dict = Depends(current_admin)) -> dict:
     if not verify_password(body.current_password, admin["password_hash"]):
         raise HTTPException(status_code=400, detail="Your current password is incorrect.")
-    await db.admins.update_one({"_id": admin["_id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
+    await db.admins.update_one(
+        {"_id": admin["_id"]},
+        {"$set": {"password_hash": hash_password(body.new_password)}},
+    )
     return {"ok": True}

@@ -16,6 +16,7 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 - Streaming replies with Markdown, tables and code blocks
 - Clear or export a conversation, with undo
 - Accounts with email and password sign-up and log-in; conversations are saved to your account
+- Learner memory: teachers remember each learner's goals, interests, level and recurring mistakes across conversations and teachers. A background AI call updates it every few messages as structured JSON, and learners can view, edit or turn it off
 - A separate admin panel at `/admin` with its own team sign-in: live stats, full teacher and persona editor with a prompt preview, shared rules, app and model settings, learners, every learner conversation, and team members with owner and admin roles
 - Command palette (`Cmd/Ctrl + K`) to jump to any teacher, plus a shortcuts dialog (`Cmd/Ctrl + /`)
 - Light, dark and system themes, keyboard shortcuts and a mobile-friendly layout
@@ -157,4 +158,5 @@ Any backend that emits these events works with the UI.
 - [ ] Agent loop: call tools until the task is done
 - [x] Conversation memory on the backend (MongoDB)
 - [x] Accounts and an admin panel
+- [x] Learner memory shared across teachers
 - [ ] Tests and Docker setup

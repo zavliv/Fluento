@@ -11,21 +11,23 @@ from app.db import db
 from app.schemas.conversations import ChatRequest
 from app.security import current_user
 from app.services.conversations import bump_teacher, save_conversation
+from app.services.memory import maybe_update_memory
 
 router = APIRouter(tags=["chat"])
 _background: set[asyncio.Task] = set()
 
 
-async def _persist(user_id, teacher_id: str, messages: list[dict]) -> None:
-    await save_conversation(user_id, teacher_id, messages)
-    await bump_teacher(user_id, teacher_id)
+async def _persist(user: dict, teacher: dict, messages: list[dict]) -> None:
+    await save_conversation(user["_id"], teacher["_id"], messages)
+    await bump_teacher(user["_id"], teacher["_id"])
+    await maybe_update_memory(user, teacher, messages)
 
 
 async def _stream(user: dict, teacher: dict, body: ChatRequest) -> AsyncIterator[str]:
     history = [m.model_dump() for m in body.messages]
     parts: list[str] = []
     try:
-        async for event in teacher_reply(teacher, history):
+        async for event in teacher_reply(teacher, history, user):
             if event["type"] == "text":
                 parts.append(event["text"])
             yield f"data: {json.dumps(event)}\n\n"
@@ -41,7 +43,7 @@ async def _stream(user: dict, teacher: dict, body: ChatRequest) -> AsyncIterator
                     "feedback": None,
                 }
             )
-        task = asyncio.create_task(_persist(user["_id"], teacher["_id"], history))
+        task = asyncio.create_task(_persist(user, teacher, history))
         _background.add(task)
         task.add_done_callback(_background.discard)
 

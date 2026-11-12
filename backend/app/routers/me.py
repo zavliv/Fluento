@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.db import db
+from app.db import db, now
 from app.schemas.conversations import ConversationSummary, MessagesUpdate, MyTeachersUpdate, StoredMessage
+from app.schemas.memory import MemoryFields, MemoryResponse, MemorySettings
 from app.security import current_user
+from app.services.app_settings import get_app_settings
 from app.services.conversations import save_conversation
+from app.services.memory import get_memory
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -54,3 +57,34 @@ async def replace_conversation(teacher_id: str, body: MessagesUpdate, user: dict
 async def delete_conversation(teacher_id: str, user: dict = Depends(current_user)) -> dict:
     await db.conversations.delete_one({"user_id": user["_id"], "teacher_id": teacher_id})
     return {"ok": True}
+
+
+@router.get("/memory")
+async def my_memory(user: dict = Depends(current_user)) -> MemoryResponse:
+    return MemoryResponse(
+        enabled=user.get("memory_enabled", True),
+        available=(await get_app_settings())["memory_enabled"],
+        memory=await get_memory(user["_id"]),
+    )
+
+
+@router.put("/memory")
+async def edit_my_memory(body: MemoryFields, user: dict = Depends(current_user)) -> MemoryResponse:
+    await db.memories.update_one(
+        {"_id": user["_id"]},
+        {"$set": {**body.model_dump(), "updated_at": now()}, "$setOnInsert": {"created_at": now()}},
+        upsert=True,
+    )
+    return await my_memory(user)
+
+
+@router.delete("/memory")
+async def clear_my_memory(user: dict = Depends(current_user)) -> dict:
+    await db.memories.delete_one({"_id": user["_id"]})
+    return {"ok": True}
+
+
+@router.put("/memory/settings")
+async def update_memory_settings(body: MemorySettings, user: dict = Depends(current_user)) -> MemoryResponse:
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"memory_enabled": body.enabled}})
+    return await my_memory({**user, "memory_enabled": body.enabled})

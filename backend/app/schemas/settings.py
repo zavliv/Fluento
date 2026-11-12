@@ -10,6 +10,7 @@ class AppSettings(BaseModel):
     stt_model: str = Field(min_length=1)
     default_teacher_id: str
     signup_enabled: bool
+    memory_enabled: bool
 
 
 class PublicSettings(BaseModel):

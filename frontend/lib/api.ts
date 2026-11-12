@@ -39,7 +39,26 @@ export type AppSettings = {
   stt_model: string;
   default_teacher_id: string;
   signup_enabled: boolean;
+  memory_enabled: boolean;
 };
+
+export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+
+export type MemoryMistake = { pattern: string; example: string; correction: string; count: number };
+
+export type MemoryFields = {
+  summary: string;
+  level: CefrLevel | null;
+  goals: string[];
+  interests: string[];
+  facts: string[];
+  strengths: string[];
+  mistakes: MemoryMistake[];
+};
+
+export type LearnerMemory = MemoryFields & { updated_at: string | null };
+
+export type MemoryResponse = { enabled: boolean; available: boolean; memory: LearnerMemory | null };
 
 export type Stats = {
   learners: number;
@@ -122,6 +141,12 @@ export const api = {
   deleteConversation: (teacherId: string) =>
     request<{ ok: true }>(`/me/conversations/${teacherId}`, { method: "DELETE" }),
 
+  memory: () => request<MemoryResponse>("/me/memory"),
+  saveMemory: (body: MemoryFields) => request<MemoryResponse>("/me/memory", { method: "PUT", json: body }),
+  clearMemory: () => request<{ ok: true }>("/me/memory", { method: "DELETE" }),
+  setMemoryEnabled: (enabled: boolean) =>
+    request<MemoryResponse>("/me/memory/settings", { method: "PUT", json: { enabled } }),
+
   admin: {
     login: (body: { email: string; password: string }) =>
       request<AdminAccount>("/admin/auth/login", { method: "POST", json: body }),
@@ -152,6 +177,7 @@ export const api = {
     settings: () => request<AppSettings>("/admin/settings"),
     saveSettings: (body: AppSettings) => request<AppSettings>("/admin/settings", { method: "PUT", json: body }),
     users: () => request<AdminUser[]>("/admin/users"),
+    userMemory: (id: string) => request<MemoryResponse>(`/admin/users/${id}/memory`),
     deleteUser: (id: string) => request<{ ok: true }>(`/admin/users/${id}`, { method: "DELETE" }),
     conversations: (filters: { teacherId?: string; userId?: string } = {}) => {
       const params = new URLSearchParams();

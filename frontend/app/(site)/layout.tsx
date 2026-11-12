@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
-import { cacheLife } from "next/cache";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { getPublicData } from "@/lib/server";
 import { siteDescription, siteTitle } from "@/lib/site";
 
 export async function generateMetadata(): Promise<Metadata> {
-  "use cache";
-  cacheLife({ stale: 30, revalidate: 30, expire: 300 });
   const { settings, teachers } = await getPublicData();
   const name = settings.app_name;
   const title = siteTitle(name);

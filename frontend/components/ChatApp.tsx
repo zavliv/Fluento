@@ -1,6 +1,6 @@
 "use client";
 
-import { Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
+import { Brain, Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
 import { LoaderCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +15,7 @@ import { ChatHeader } from "./ChatHeader";
 import { CommandPalette, type Command } from "./CommandPalette";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
+import { MemoryDialog } from "./memory/MemoryDialog";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
 import { TeacherAvatar } from "./TeacherAvatar";
@@ -39,6 +40,7 @@ export default function ChatApp() {
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const { active, messages, select, stop, isStreaming, clear, restore } = chat;
   const { myTeacherIds, addTeacher, removeTeacher } = chat;
 
@@ -143,6 +145,13 @@ export default function ChatApp() {
         hint: shortcut("/"),
         run: () => setShortcutsOpen(true),
       },
+      {
+        id: "memory",
+        label: "What your teachers remember",
+        group: "Actions",
+        icon: <Brain />,
+        run: () => setMemoryOpen(true),
+      },
     ];
     const teacherCommands: Command[] = teachers.map((t) => ({
       id: `teacher-${t.id}`,
@@ -193,6 +202,7 @@ export default function ChatApp() {
         onSelect={openTeacher}
         onOpenPalette={() => setPaletteOpen(true)}
         onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenMemory={() => setMemoryOpen(true)}
         theme={theme}
         onThemeChange={setTheme}
         online={online}
@@ -250,6 +260,7 @@ export default function ChatApp() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <MemoryDialog open={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </div>
   );
 }

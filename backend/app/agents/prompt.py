@@ -25,7 +25,48 @@ def render_rules(sections: list[dict], values: dict[str, str]) -> str:
     return "\n\n".join(blocks)
 
 
-def build_system_prompt(teacher: dict, rule_sections: list[dict], app_name: str, other_teachers: list[dict]) -> str:
+def render_learner(name: str | None, memory: dict | None) -> str:
+    if not name and not memory:
+        return ""
+    lines = [f"- Name: {name}"] if name else []
+    if memory:
+        if memory.get("summary"):
+            lines.append(f"- Summary: {memory['summary']}")
+        if memory.get("level"):
+            lines.append(f"- Estimated level: {memory['level']} (CEFR)")
+        for key, label in (
+            ("goals", "Goals"),
+            ("interests", "Interests"),
+            ("facts", "About them"),
+            ("strengths", "Strengths"),
+        ):
+            if memory.get(key):
+                lines.append(f"- {label}: {'; '.join(memory[key])}")
+        mistakes = memory.get("mistakes") or []
+        if mistakes:
+            lines.append("- Recurring mistakes to watch for:")
+            for m in mistakes[:6]:
+                example = f' (they wrote "{m["example"]}", correct: "{m["correction"]}")' if m.get("example") else ""
+                lines.append(f"  - {m['pattern']}{example}, seen {m.get('count', 1)}x")
+    has_memory = bool(memory) and len(lines) > (1 if name else 0)
+    guidance = (
+        "This is what you remember from earlier conversations, including ones with other teachers. "
+        "Use it naturally, like a teacher who knows their student: bring up their goals and interests, "
+        "and gently check recurring mistakes when they come up. Never list these notes, say you have a profile, "
+        "or claim to remember things that aren't here."
+        if has_memory
+        else "This is a new learner. Get to know their goals and interests naturally as you talk."
+    )
+    return f"# Your learner\n{guidance}\n" + "\n".join(lines) + "\n\n"
+
+
+def build_system_prompt(
+    teacher: dict,
+    rule_sections: list[dict],
+    app_name: str,
+    other_teachers: list[dict],
+    learner: str = "",
+) -> str:
     p = teacher.get("persona", {})
     name = teacher["name"]
     values = {"{name}": name, "{app}": app_name, "{teachers}": describe_teachers(other_teachers)}
@@ -54,5 +95,5 @@ Examples of things you might say:
 ## Your languages
 {", ".join(p.get("languages", ["English"]))}
 
-# Rules for every {app_name} teacher
+{learner}# Rules for every {app_name} teacher
 {render_rules(rule_sections, values)}"""

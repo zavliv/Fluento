@@ -1,11 +1,12 @@
 "use client";
 
-import { Search, Trash2 } from "lucide-react";
+import { Brain, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useLoad } from "@/hooks/useLoad";
 import { api, type AdminUser } from "@/lib/api";
 import { IconButton } from "../IconButton";
+import { memoryIsEmpty, MemoryView } from "../memory/MemoryView";
 import { Dialog } from "../ui/Dialog";
 import { useToast } from "../ui/Toast";
 import { Button, EmptyState, ErrorState, formatDate, LoadingState, PageHeader, timeAgo } from "./ui";
@@ -16,6 +17,7 @@ export function UsersTable() {
   const { data: users, loading, error, reload, setData } = useLoad(load);
   const [query, setQuery] = useState("");
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
+  const [viewing, setViewing] = useState<AdminUser | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -73,7 +75,7 @@ export function UsersTable() {
                 <th className="px-3 py-3 text-right font-semibold">Messages</th>
                 <th className="px-3 py-3 font-semibold">Joined</th>
                 <th className="px-3 py-3 font-semibold">Last active</th>
-                <th className="w-12 px-5 py-3" />
+                <th className="w-24 px-5 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -107,6 +109,9 @@ export function UsersTable() {
                     <td className="px-3 py-3 text-muted">{formatDate(u.created_at)}</td>
                     <td className="px-3 py-3 text-muted">{timeAgo(u.last_seen_at)}</td>
                     <td className="px-5 py-3 text-right">
+                      <IconButton label={`What teachers remember about ${u.name}`} onClick={() => setViewing(u)}>
+                        <Brain />
+                      </IconButton>
                       <IconButton label={`Delete ${u.name}`} onClick={() => setDeleting(u)}>
                         <Trash2 />
                       </IconButton>
@@ -118,6 +123,10 @@ export function UsersTable() {
           </table>
         </div>
       )}
+
+      <Dialog open={viewing !== null} onClose={() => setViewing(null)} label="Learner memory" className="max-w-xl">
+        {viewing && <LearnerMemoryPanel user={viewing} onClose={() => setViewing(null)} />}
+      </Dialog>
 
       <Dialog open={deleting !== null} onClose={() => setDeleting(null)} label="Delete learner" className="max-w-md">
         <div className="p-5">
@@ -137,6 +146,39 @@ export function UsersTable() {
           </div>
         </div>
       </Dialog>
+    </>
+  );
+}
+
+function LearnerMemoryPanel({ user, onClose }: { user: AdminUser; onClose: () => void }) {
+  const load = useCallback(() => api.admin.userMemory(user.id), [user.id]);
+  const { data, loading, error } = useLoad(load);
+
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3 border-b border-line py-3.5 pr-3 pl-5">
+        <div>
+          <h2 className="text-[15px] font-semibold text-ink">What teachers remember about {user.name}</h2>
+          <p className="mt-0.5 text-xs text-muted">
+            {data?.memory?.updated_at ? `Updated ${timeAgo(data.memory.updated_at)}` : "Read-only"}
+            {data && !data.enabled && " · The learner turned memory off"}
+          </p>
+        </div>
+        <IconButton label="Close" tooltip={false} onClick={onClose}>
+          <X />
+        </IconButton>
+      </div>
+      <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
+        {loading && !data ? (
+          <LoadingState />
+        ) : error ? (
+          <p className="text-sm text-danger">{error}</p>
+        ) : !data?.memory || memoryIsEmpty(data.memory) ? (
+          <p className="py-8 text-center text-sm text-muted">Nothing remembered yet.</p>
+        ) : (
+          <MemoryView memory={data.memory} perspective="admin" />
+        )}
+      </div>
     </>
   );
 }
