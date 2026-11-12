@@ -2,7 +2,6 @@
 
 import {
   GraduationCap,
-  Brain,
   Keyboard,
   LogOut,
   LayoutGrid,
@@ -11,6 +10,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   Search,
+  SpellCheck,
   Sun,
   X,
 } from "lucide-react";
@@ -37,7 +37,9 @@ type Props = {
   onRemove: (teacherId: string) => void;
   onOpenPalette: () => void;
   onOpenShortcuts: () => void;
-  onOpenMemory: () => void;
+  mistakesOpen: boolean;
+  mistakeCount: number | null;
+  onOpenMistakes: () => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   online: boolean | null;
@@ -83,7 +85,7 @@ export function Sidebar(props: Props) {
             className={cn(
               SIDEBAR_BUTTON,
               "min-w-0 flex-1 gap-2.5 px-3 font-medium text-ink",
-              activeId === null && "border-accent/40",
+              activeId === null && !props.mistakesOpen && "border-accent/40",
             )}
           >
             <LayoutGrid className="size-4 text-accent" />
@@ -97,6 +99,26 @@ export function Sidebar(props: Props) {
             className={cn(SIDEBAR_BUTTON, "tip tip-bottom w-10 shrink-0 justify-center text-muted hover:text-ink")}
           >
             <Search className="size-4" />
+          </button>
+        </div>
+
+        <div className="px-3 pt-2">
+          <button
+            type="button"
+            onClick={props.onOpenMistakes}
+            aria-current={props.mistakesOpen ? "page" : undefined}
+            className={cn(
+              "flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-sm transition-colors",
+              props.mistakesOpen ? "bg-hover font-semibold text-ink" : "text-muted hover:bg-hover/70 hover:text-ink",
+            )}
+          >
+            <SpellCheck className="size-4" />
+            My mistakes
+            {!!props.mistakeCount && (
+              <span className="ml-auto rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent tabular-nums">
+                {props.mistakeCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -202,9 +224,6 @@ export function Sidebar(props: Props) {
               <p className="truncate text-xs text-subtle">{props.user.email}</p>
             </div>
             <div className="flex shrink-0 items-center">
-              <IconButton label="What your teachers remember" onClick={props.onOpenMemory}>
-                <Brain />
-              </IconButton>
               <IconButton label={`Keyboard shortcuts (${shortcut("/")})`} onClick={props.onOpenShortcuts}>
                 <Keyboard />
               </IconButton>
@@ -232,7 +251,8 @@ function Rail({
   theme,
   onThemeChange,
   onOpenShortcuts,
-  onOpenMemory,
+  onOpenMistakes,
+  mistakeCount,
 }: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
@@ -264,6 +284,16 @@ function Rail({
         >
           <Search />
         </IconButton>
+        <span className="relative">
+          <IconButton label="My mistakes" tooltip="right" onClick={onOpenMistakes} className={railButton}>
+            <SpellCheck />
+          </IconButton>
+          {!!mistakeCount && (
+            <span className="pointer-events-none absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 font-bold text-accent-ink tabular-nums">
+              {mistakeCount > 99 ? "99+" : mistakeCount}
+            </span>
+          )}
+        </span>
       </div>
 
       <div className="mx-auto my-3 h-px w-7 bg-line" />
@@ -305,9 +335,6 @@ function Rail({
       </nav>
 
       <div className="mt-auto flex flex-col items-center gap-1 border-t border-line/70 py-3">
-        <IconButton label="What your teachers remember" tooltip="right" onClick={onOpenMemory} className={railButton}>
-          <Brain />
-        </IconButton>
         <IconButton label="Keyboard shortcuts" tooltip="right" onClick={onOpenShortcuts} className={railButton}>
           <Keyboard />
         </IconButton>

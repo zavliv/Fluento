@@ -1,6 +1,16 @@
-export type PublicSettings = { app_name: string; default_teacher_id: string; signup_enabled: boolean };
+export type PublicSettings = {
+  app_name: string;
+  default_teacher_id: string;
+  signup_enabled: boolean;
+  mistakes_enabled: boolean;
+};
 
-export const DEFAULT_SETTINGS: PublicSettings = { app_name: "Fluento", default_teacher_id: "", signup_enabled: true };
+export const DEFAULT_SETTINGS: PublicSettings = {
+  app_name: "Fluento",
+  default_teacher_id: "",
+  signup_enabled: true,
+  mistakes_enabled: true,
+};
 
 export const SITE = {
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",

@@ -15,6 +15,7 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 - Voice input that writes your words as you speak, and read-aloud replies in the teacher's voice
 - Streaming replies with Markdown, tables and code blocks
 - Clear or export a conversation, with undo
+- Mistake tracker: every learner message is checked in the background, and mistakes are saved with the correction, category and rule. **My mistakes** shows top patterns, filters by category, lets learners mark mistakes as learned, and starts a practice exercise with a teacher in one click
 - Accounts with email and password sign-up and log-in; conversations are saved to your account
 - Learner memory: teachers remember each learner's goals, interests, level and recurring mistakes across conversations and teachers. A background AI call updates it every few messages as structured JSON, and learners can view, edit or turn it off
 - A separate admin panel at `/admin` with its own team sign-in: live stats, full teacher and persona editor with a prompt preview, shared rules, app and model settings, learners, every learner conversation, and team members with owner and admin roles
@@ -102,12 +103,12 @@ The frontend reads `NEXT_PUBLIC_API_URL` (backend address) and `NEXT_PUBLIC_SITE
 
 ## API
 
-| Area   | Endpoints                                                                                                                                                   | Access       |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| Public | `GET /health`, `GET /teachers`, `GET /app-settings`                                                                                                         | Anyone       |
-| Auth   | `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`                                                                                | Anyone       |
-| Learn  | `POST /chat` (SSE), `POST /transcribe`, `GET/PUT /me/teachers`, `GET/PUT/DELETE /me/conversations/{teacher_id}`                                             | Logged in    |
-| Admin  | `/admin/auth/*` (team sign-in), `/admin/stats`, `/admin/teachers`, `/admin/rules`, `/admin/settings`, `/admin/users`, `/admin/conversations`, `/admin/team` | Team members |
+| Area   | Endpoints                                                                                                                                                                                         | Access       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Public | `GET /health`, `GET /teachers`, `GET /app-settings`                                                                                                                                               | Anyone       |
+| Auth   | `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`                                                                                                                      | Anyone       |
+| Learn  | `POST /chat` (SSE), `POST /transcribe`, `GET/PUT /me/teachers`, `GET/PUT/DELETE /me/conversations/{teacher_id}`, `GET /me/mistakes`, `GET /me/mistakes/summary`, `PATCH/DELETE /me/mistakes/{id}` | Logged in    |
+| Admin  | `/admin/auth/*` (team sign-in), `/admin/stats`, `/admin/teachers`, `/admin/rules`, `/admin/settings`, `/admin/users`, `/admin/conversations`, `/admin/team`                                       | Team members |
 
 Learners and team members are completely separate: learners are stored in the `users` collection and team members in `admins`, each with their own login and their own httpOnly JWT cookie. Only owners can manage the team. Teacher personas are only returned by the admin API; learners see public profile fields.
 

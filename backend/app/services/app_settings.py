@@ -16,6 +16,7 @@ DEFAULTS = {
     "default_teacher_id": "maya",
     "signup_enabled": True,
     "memory_enabled": True,
+    "mistakes_enabled": True,
 }
 
 _cache: dict = {"value": None, "at": 0.0}

@@ -12,6 +12,7 @@ from app.schemas.admin import (
     AdminConversation,
     AdminConversationSummary,
     AdminUser,
+    MistakeCategoryCount,
     RecentConversation,
     Stats,
     TeacherUsage,
@@ -80,6 +81,11 @@ async def stats() -> Stats:
     )
     users = {u["_id"]: u for u in await db.users.find({"_id": {"$in": [d["user_id"] for d in recent_docs]}}).to_list()}
     counts = {f["_id"]: f["count"] for f in feedback}
+    mistake_categories = await (
+        await db.mistakes.aggregate(
+            [{"$group": {"_id": "$category", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}, {"$limit": 6}]
+        )
+    ).to_list()
 
     return Stats(
         learners=await db.users.count_documents({}),
@@ -89,6 +95,8 @@ async def stats() -> Stats:
         messages=totals[0]["messages"] if totals else 0,
         feedback_up=counts.get("up", 0),
         feedback_down=counts.get("down", 0),
+        mistakes=await db.mistakes.count_documents({}),
+        mistake_categories=[MistakeCategoryCount(category=c["_id"], count=c["count"]) for c in mistake_categories],
         teacher_usage=[
             TeacherUsage(teacher_id=u["_id"], conversations=u["conversations"], messages=u["messages"]) for u in usage
         ],
@@ -251,6 +259,7 @@ async def delete_user(user_id: str) -> dict:
     if (await db.users.delete_one({"_id": oid})).deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found.")
     await db.conversations.delete_many({"user_id": oid})
+    await db.mistakes.delete_many({"user_id": oid})
     await db.memories.delete_one({"_id": oid})
     return {"ok": True}
 

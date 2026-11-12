@@ -1,21 +1,22 @@
 "use client";
 
-import { Brain, Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
+import { Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, SpellCheck, Sun } from "lucide-react";
 import { LoaderCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBackendStatus } from "@/hooks/useBackendStatus";
+import { useMistakeSummary } from "@/hooks/useMistakeSummary";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useTeacherChats } from "@/hooks/useTeacherChats";
 import { useTheme } from "@/hooks/useTheme";
 import { exportConversation } from "@/lib/export";
-import { teacherTheme } from "@/lib/teachers";
+import { pickGuide, teacherTheme } from "@/lib/teachers";
 import { shortcut } from "@/lib/utils";
 import { ChatHeader } from "./ChatHeader";
 import { CommandPalette, type Command } from "./CommandPalette";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
-import { MemoryDialog } from "./memory/MemoryDialog";
+import { MistakesPage } from "./mistakes/MistakesPage";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
 import { TeacherAvatar } from "./TeacherAvatar";
@@ -36,13 +37,15 @@ export default function ChatApp() {
   const { theme, setTheme } = useTheme();
   const { online, model } = useBackendStatus();
   const toast = useToast();
-  const { signup_enabled: signupEnabled } = useSiteSettings();
+  const { signup_enabled: signupEnabled, default_teacher_id: defaultTeacherId } = useSiteSettings();
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [memoryOpen, setMemoryOpen] = useState(false);
   const { active, messages, select, stop, isStreaming, clear, restore } = chat;
   const { myTeacherIds, addTeacher, removeTeacher } = chat;
+  const [view, setView] = useState<"chat" | "mistakes">("chat");
+  const practice = useRef<{ teacherId: string; text: string } | null>(null);
+  const mistakes = useMistakeSummary(Boolean(user), isStreaming);
 
   const openTeacher = useCallback(
     (id: string | null) => {
@@ -51,6 +54,7 @@ export default function ChatApp() {
         router.push(id ? `${page}?teacher=${encodeURIComponent(id)}` : page);
         return;
       }
+      setView("chat");
       select(id);
       if (isMobile()) setSidebarOpen(false);
     },
@@ -65,6 +69,34 @@ export default function ChatApp() {
     if (teachers.some((t) => t.id === pendingTeacher)) select(pendingTeacher);
     router.replace("/");
   }, [pendingTeacher, user, chat.ready, teachers, select, router]);
+
+  const openMistakes = useCallback(() => {
+    setView("mistakes");
+    select(null);
+    mistakes.refresh();
+    if (isMobile()) setSidebarOpen(false);
+  }, [select, mistakes]);
+
+  const practise = useCallback(
+    (m: { rule: string; original: string; correction: string; teacher_id?: string }) => {
+      const teacher = teachers.find((t) => t.id === m.teacher_id) ?? pickGuide(teachers, defaultTeacherId);
+      if (!teacher) return;
+      practice.current = {
+        teacherId: teacher.id,
+        text: `Can you give me a quick exercise to practise this: ${m.rule}? I wrote "${m.original}" instead of "${m.correction}".`,
+      };
+      openTeacher(teacher.id);
+    },
+    [teachers, defaultTeacherId, openTeacher],
+  );
+
+  const { send, loadingConversation } = chat;
+  useEffect(() => {
+    const pending = practice.current;
+    if (!pending || active?.id !== pending.teacherId || loadingConversation || isStreaming) return;
+    practice.current = null;
+    send(pending.text);
+  }, [active, loadingConversation, isStreaming, send]);
 
   const signOut = useCallback(async () => {
     await logout();
@@ -145,13 +177,7 @@ export default function ChatApp() {
         hint: shortcut("/"),
         run: () => setShortcutsOpen(true),
       },
-      {
-        id: "memory",
-        label: "What your teachers remember",
-        group: "Actions",
-        icon: <Brain />,
-        run: () => setMemoryOpen(true),
-      },
+      { id: "mistakes", label: "My mistakes", group: "Actions", icon: <SpellCheck />, run: openMistakes },
     ];
     const teacherCommands: Command[] = teachers.map((t) => ({
       id: `teacher-${t.id}`,
@@ -161,7 +187,7 @@ export default function ChatApp() {
       run: () => openTeacher(t.id),
     }));
     return [...teacherCommands, ...actions];
-  }, [teachers, openTeacher, setTheme]);
+  }, [teachers, openTeacher, openMistakes, setTheme]);
 
   if (authLoading || teachersLoading || (user && !chat.ready)) {
     return (
@@ -202,7 +228,9 @@ export default function ChatApp() {
         onSelect={openTeacher}
         onOpenPalette={() => setPaletteOpen(true)}
         onOpenShortcuts={() => setShortcutsOpen(true)}
-        onOpenMemory={() => setMemoryOpen(true)}
+        mistakesOpen={view === "mistakes"}
+        mistakeCount={mistakes.summary?.open ?? null}
+        onOpenMistakes={openMistakes}
         theme={theme}
         onThemeChange={setTheme}
         online={online}
@@ -217,13 +245,21 @@ export default function ChatApp() {
           typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
+          title={view === "mistakes" ? "My mistakes" : undefined}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onShowTeachers={() => openTeacher(null)}
           onExport={exportCurrent}
           onClear={clearConversation}
         />
 
-        {active ? (
+        {view === "mistakes" && !active ? (
+          <MistakesPage
+            teachers={teachers}
+            summary={mistakes.summary}
+            onChanged={mistakes.refresh}
+            onPractise={practise}
+          />
+        ) : active ? (
           <>
             <MessageList
               key={active.id}
@@ -260,7 +296,6 @@ export default function ChatApp() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <MemoryDialog open={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ from app.schemas.conversations import ChatRequest
 from app.security import current_user
 from app.services.conversations import bump_teacher, save_conversation
 from app.services.memory import maybe_update_memory
+from app.services.mistakes import record_mistakes
 
 router = APIRouter(tags=["chat"])
 _background: set[asyncio.Task] = set()
@@ -20,7 +21,7 @@ _background: set[asyncio.Task] = set()
 async def _persist(user: dict, teacher: dict, messages: list[dict]) -> None:
     await save_conversation(user["_id"], teacher["_id"], messages)
     await bump_teacher(user["_id"], teacher["_id"])
-    await maybe_update_memory(user, teacher, messages)
+    await asyncio.gather(maybe_update_memory(user, teacher, messages), record_mistakes(user, teacher, messages))
 
 
 async def _stream(user: dict, teacher: dict, body: ChatRequest) -> AsyncIterator[str]:

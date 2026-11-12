@@ -40,6 +40,7 @@ export type AppSettings = {
   default_teacher_id: string;
   signup_enabled: boolean;
   memory_enabled: boolean;
+  mistakes_enabled: boolean;
 };
 
 export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
@@ -60,6 +61,45 @@ export type LearnerMemory = MemoryFields & { updated_at: string | null };
 
 export type MemoryResponse = { enabled: boolean; available: boolean; memory: LearnerMemory | null };
 
+export const MISTAKE_CATEGORIES = [
+  "tense",
+  "verb form",
+  "agreement",
+  "article",
+  "preposition",
+  "plural",
+  "word order",
+  "word choice",
+  "spelling",
+  "punctuation",
+  "other",
+] as const;
+
+export type MistakeCategory = (typeof MISTAKE_CATEGORIES)[number];
+
+export type Mistake = {
+  id: string;
+  teacher_id: string;
+  message_id: string;
+  original: string;
+  correction: string;
+  category: MistakeCategory;
+  rule: string;
+  explanation: string;
+  mastered: boolean;
+  created_at: string;
+};
+
+export type MistakeSummary = {
+  enabled: boolean;
+  total: number;
+  open: number;
+  mastered: number;
+  this_week: number;
+  categories: { category: MistakeCategory; count: number }[];
+  top_rules: { rule: string; category: MistakeCategory; count: number; original: string; correction: string }[];
+};
+
 export type Stats = {
   learners: number;
   new_learners_7d: number;
@@ -68,6 +108,8 @@ export type Stats = {
   messages: number;
   feedback_up: number;
   feedback_down: number;
+  mistakes: number;
+  mistake_categories: { category: string; count: number }[];
   teacher_usage: { teacher_id: string; conversations: number; messages: number }[];
   recent: { id: string; user_name: string; teacher_id: string; last_message: string; updated_at: string }[];
 };
@@ -146,6 +188,16 @@ export const api = {
   clearMemory: () => request<{ ok: true }>("/me/memory", { method: "DELETE" }),
   setMemoryEnabled: (enabled: boolean) =>
     request<MemoryResponse>("/me/memory/settings", { method: "PUT", json: { enabled } }),
+
+  mistakes: (filters: { status?: "open" | "mastered" | "all"; category?: MistakeCategory } = {}) => {
+    const params = new URLSearchParams({ status: filters.status ?? "open" });
+    if (filters.category) params.set("category", filters.category);
+    return request<Mistake[]>(`/me/mistakes?${params}`);
+  },
+  mistakeSummary: () => request<MistakeSummary>("/me/mistakes/summary"),
+  setMistakeMastered: (id: string, mastered: boolean) =>
+    request<Mistake>(`/me/mistakes/${id}`, { method: "PATCH", json: { mastered } }),
+  deleteMistake: (id: string) => request<{ ok: true }>(`/me/mistakes/${id}`, { method: "DELETE" }),
 
   admin: {
     login: (body: { email: string; password: string }) =>

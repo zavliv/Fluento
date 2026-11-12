@@ -18,6 +18,11 @@ class RecentConversation(BaseModel):
     updated_at: datetime
 
 
+class MistakeCategoryCount(BaseModel):
+    category: str
+    count: int
+
+
 class Stats(BaseModel):
     learners: int
     new_learners_7d: int
@@ -26,6 +31,8 @@ class Stats(BaseModel):
     messages: int
     feedback_up: int
     feedback_down: int
+    mistakes: int
+    mistake_categories: list[MistakeCategoryCount]
     teacher_usage: list[TeacherUsage]
     recent: list[RecentConversation]
 

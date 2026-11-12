@@ -11,9 +11,11 @@ class AppSettings(BaseModel):
     default_teacher_id: str
     signup_enabled: bool
     memory_enabled: bool
+    mistakes_enabled: bool
 
 
 class PublicSettings(BaseModel):
     app_name: str
     default_teacher_id: str
     signup_enabled: bool
+    mistakes_enabled: bool

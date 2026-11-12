@@ -20,3 +20,5 @@ async def ensure_indexes() -> None:
     await db.rules.create_index([("order", ASCENDING)])
     await db.conversations.create_index([("user_id", ASCENDING), ("teacher_id", ASCENDING)], unique=True)
     await db.conversations.create_index([("updated_at", DESCENDING)])
+    await db.mistakes.create_index([("user_id", ASCENDING), ("mastered", ASCENDING), ("created_at", DESCENDING)])
+    await db.mistakes.create_index([("user_id", ASCENDING), ("message_id", ASCENDING)])

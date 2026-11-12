@@ -160,6 +160,27 @@ function Form({ initial, teachers }: { initial: AppSettings; teachers: AdminTeac
           </div>
         </Card>
 
+        <Card
+          title="Mistake tracker"
+          description="Each learner message is checked for English mistakes in the background."
+        >
+          <div className="p-5">
+            <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-ink">Track learners&apos; mistakes</p>
+                <p className="text-xs text-muted">
+                  Saved mistakes appear on each learner&apos;s My mistakes page. Uses one extra model call per message.
+                </p>
+              </div>
+              <Switch
+                checked={draft.mistakes_enabled}
+                onChange={(v) => set("mistakes_enabled", v)}
+                label="Track learners' mistakes"
+              />
+            </div>
+          </div>
+        </Card>
+
         <Card title="Speech to text" description="Used when the browser can't transcribe speech itself.">
           <div className="p-5">
             <Field label="Whisper model">

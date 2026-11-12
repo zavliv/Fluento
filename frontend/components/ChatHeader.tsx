@@ -13,13 +13,14 @@ type Props = {
   typing: boolean;
   sidebarOpen: boolean;
   model: string | null;
+  title?: string;
   onToggleSidebar: () => void;
   onShowTeachers: () => void;
   onExport: () => void;
   onClear: () => void;
 };
 
-export function ChatHeader({ teacher, online, typing, sidebarOpen, model, ...actions }: Props) {
+export function ChatHeader({ teacher, online, typing, sidebarOpen, model, title = "All teachers", ...actions }: Props) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line/70 px-2.5 md:px-4">
       <div className="flex min-w-0 items-center gap-1">
@@ -54,7 +55,7 @@ export function ChatHeader({ teacher, online, typing, sidebarOpen, model, ...act
             </div>
           </div>
         ) : (
-          <h2 className="ml-1.5 text-sm font-medium text-ink">All teachers</h2>
+          <h2 className="ml-1.5 text-sm font-medium text-ink">{title}</h2>
         )}
       </div>
 

@@ -20,6 +20,7 @@ export function Overview() {
   const byId = Object.fromEntries(teachers.map((t) => [t.id, t]));
   const rated = stats.feedback_up + stats.feedback_down;
   const maxMessages = Math.max(1, ...stats.teacher_usage.map((u) => u.messages));
+  const maxMistakes = Math.max(1, ...stats.mistake_categories.map((c) => c.count));
 
   const cards = [
     { label: "Learners", value: stats.learners, note: `${stats.new_learners_7d} new this week`, icon: Users },
@@ -124,6 +125,35 @@ export function Overview() {
           )}
         </Card>
       </div>
+
+      <Card
+        title="Common mistakes"
+        description={`${stats.mistakes} mistakes found in learner messages, by category`}
+        className="mt-4"
+      >
+        {stats.mistake_categories.length === 0 ? (
+          <div className="p-5">
+            <EmptyState title="No mistakes tracked yet" text="They appear here as learners chat." />
+          </div>
+        ) : (
+          <ul className="grid gap-x-8 gap-y-3 p-5 sm:grid-cols-2">
+            {stats.mistake_categories.map((c) => (
+              <li key={c.category}>
+                <div className="mb-1.5 flex items-center justify-between text-sm">
+                  <span className="font-semibold text-ink capitalize">{c.category}</span>
+                  <span className="text-xs text-muted tabular-nums">{c.count}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-hover">
+                  <div
+                    className="h-full rounded-full bg-accent"
+                    style={{ width: `${(c.count / maxMistakes) * 100}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </>
   );
 }
