@@ -29,12 +29,16 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 Fluento/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py        # FastAPI app: /health, /chat (SSE), /transcribe
-│   │   ├── config.py      # Settings from env vars / .env
-│   │   ├── llm.py         # Groq client and streaming reply
-│   │   ├── prompts.py     # System prompt
-│   │   ├── speech.py      # Speech-to-text with Whisper
-│   │   └── schemas.py     # Request models
+│   │   ├── main.py            # FastAPI app: /health, /teachers, /chat (SSE), /transcribe
+│   │   ├── config.py          # Settings from env vars / .env
+│   │   ├── llm.py             # Groq client and streaming completion
+│   │   ├── speech.py          # Speech-to-text fallback
+│   │   ├── schemas.py         # Request and response models
+│   │   └── agents/
+│   │       ├── registry.py    # Every teacher agent, by id
+│   │       ├── core/          # Persona model, prompt builder, TeacherAgent
+│   │       ├── rules/         # Shared rules: identity, conversation, corrections, language, formatting, safety
+│   │       └── teachers/      # One persona file per teacher (maya.py, arjun.py, ...)
 │   ├── pyproject.toml
 │   └── .env.example
 └── frontend/
@@ -87,13 +91,16 @@ The frontend reads `NEXT_PUBLIC_API_URL` (backend address) and `NEXT_PUBLIC_SITE
 
 ## Streaming protocol
 
-`POST /chat` takes:
+`POST /chat` takes the teacher to talk to and the conversation so far:
 
 ```json
 {
+  "teacher_id": "maya",
   "messages": [{ "role": "user", "content": "Hello" }]
 }
 ```
+
+`GET /teachers` lists the available teachers (id, name, role, specialty, languages). Teacher prompts stay on the backend.
 
 It responds with Server-Sent Events. Each event is a `data: <json>` line:
 

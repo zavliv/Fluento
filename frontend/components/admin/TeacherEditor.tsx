@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, X } from "lucide-react";
+import { Bot, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Teacher, TeacherLevel, TeacherVoice } from "@/lib/teachers";
@@ -136,14 +136,14 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
             <Textarea rows={2} value={draft.greeting} onChange={(e) => set("greeting", e.target.value)} />
           </Field>
 
-          <Field label="System prompt" hint="Instructions sent to the model for this teacher.">
-            <Textarea
-              rows={6}
-              value={draft.systemPrompt}
-              onChange={(e) => set("systemPrompt", e.target.value)}
-              className="font-mono text-[13px]"
-            />
-          </Field>
+          <div className="flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+            <Bot className="mt-0.5 size-4 shrink-0 text-accent" />
+            <p className="text-muted">
+              This teacher&apos;s agent persona and the shared teaching rules live in the backend, in{" "}
+              <code className="font-mono text-[12.5px] text-ink">backend/app/teachers/{draft.id}.py</code> and{" "}
+              <code className="font-mono text-[12.5px] text-ink">rules.py</code>.
+            </p>
+          </div>
 
           <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
             <div>

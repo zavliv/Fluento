@@ -5,9 +5,9 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from app.agents.registry import TEACHERS, get_teacher
 from app.config import settings
-from app.llm import stream_reply
-from app.schemas import ChatRequest, TranscriptionResponse
+from app.schemas import ChatRequest, TeacherSummary, TranscriptionResponse
 from app.speech import TranscriptionError, transcribe
 
 app = FastAPI(title="Fluento API")
@@ -30,10 +30,27 @@ def health():
     return {"status": "ok", "model": settings.llm_model}
 
 
+@app.get("/teachers")
+def list_teachers() -> list[TeacherSummary]:
+    return [
+        TeacherSummary(
+            id=agent.persona.id,
+            name=agent.persona.name,
+            role=agent.persona.role,
+            specialty=agent.persona.specialty,
+            languages=agent.persona.languages,
+        )
+        for agent in TEACHERS.values()
+    ]
+
+
 @app.post("/chat")
 async def chat(request: ChatRequest):
+    teacher = get_teacher(request.teacher_id)
+    if teacher is None:
+        raise HTTPException(status_code=404, detail=f"Unknown teacher: {request.teacher_id}")
     return StreamingResponse(
-        to_sse(stream_reply(request.messages, request.system_prompt)),
+        to_sse(teacher.reply(request.messages)),
         media_type="text/event-stream",
     )
 

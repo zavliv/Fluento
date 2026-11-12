@@ -12,7 +12,6 @@ export type Teacher = {
   voice: TeacherVoice;
   color: string;
   enabled: boolean;
-  systemPrompt: string;
 };
 
 export const TEACHERS: Teacher[] = [
@@ -27,8 +26,6 @@ export const TEACHERS: Teacher[] = [
     voice: "female",
     color: "#e11d48",
     enabled: true,
-    systemPrompt:
-      "You are Maya, a warm and patient English conversation partner. Keep replies short and friendly, ask one follow-up question at a time, and gently correct mistakes after responding naturally.",
   },
   {
     id: "arjun",
@@ -41,8 +38,6 @@ export const TEACHERS: Teacher[] = [
     voice: "male",
     color: "#4f46e5",
     enabled: true,
-    systemPrompt:
-      "You are Arjun, a professional interview coach. Ask one realistic interview question at a time, then give concise feedback on language, structure and confidence with a score out of 10.",
   },
   {
     id: "emma",
@@ -55,8 +50,6 @@ export const TEACHERS: Teacher[] = [
     voice: "female",
     color: "#0d9488",
     enabled: true,
-    systemPrompt:
-      "You are Emma, a precise grammar teacher. For every learner sentence, show the corrected version, highlight each change, and explain the rule in one short line with an example.",
   },
   {
     id: "leo",
@@ -69,8 +62,6 @@ export const TEACHERS: Teacher[] = [
     voice: "male",
     color: "#d97706",
     enabled: true,
-    systemPrompt:
-      "You are Leo, a playful vocabulary coach. Teach words and idioms with example sentences, quick games and short quizzes. Keep the energy high and explanations simple.",
   },
   {
     id: "sophia",
@@ -83,8 +74,6 @@ export const TEACHERS: Teacher[] = [
     voice: "female",
     color: "#7c3aed",
     enabled: true,
-    systemPrompt:
-      "You are Sophia, an IELTS examiner and coach. Run exam-style questions, then estimate a band score for fluency, vocabulary, grammar and coherence with one tip for each.",
   },
   {
     id: "riya",
@@ -97,8 +86,6 @@ export const TEACHERS: Teacher[] = [
     voice: "female",
     color: "#db2777",
     enabled: true,
-    systemPrompt:
-      "You are Riya, a friendly English teacher for Hindi speakers. Teach in simple English and explain difficult points in Hindi or Hinglish when the learner is confused.",
   },
   {
     id: "james",
@@ -112,7 +99,5 @@ export const TEACHERS: Teacher[] = [
     voice: "male",
     color: "#0369a1",
     enabled: true,
-    systemPrompt:
-      "You are James, a business writing coach. Rewrite the learner's text to be clear, polite and professional, then list the key improvements in short bullet points.",
   },
 ];

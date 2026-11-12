@@ -9,8 +9,16 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    teacher_id: str
     messages: list[ChatMessage]
-    system_prompt: str | None = None
+
+
+class TeacherSummary(BaseModel):
+    id: str
+    name: str
+    role: str
+    specialty: str
+    languages: list[str]
 
 
 class TranscriptionResponse(BaseModel):

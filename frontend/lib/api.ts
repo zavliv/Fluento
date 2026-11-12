@@ -11,14 +11,14 @@ export function toApiMessages(messages: Message[]): ApiMessage[] {
 
 export async function streamChat(
   messages: ApiMessage[],
-  systemPrompt: string,
+  teacherId: string,
   onEvent: (event: StreamEvent) => void,
   signal: AbortSignal,
 ) {
   const res = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, system_prompt: systemPrompt }),
+    body: JSON.stringify({ teacher_id: teacherId, messages }),
     signal,
   });
   if (!res.ok || !res.body) throw new Error(`The backend responded with status ${res.status}.`);

@@ -23,7 +23,6 @@ const blankTeacher = (): Teacher => ({
   voice: "female",
   color: "#0d9488",
   enabled: true,
-  systemPrompt: "",
 });
 
 export function AdminTeachers() {

@@ -64,7 +64,7 @@ export function useTeacherChats() {
     try {
       await streamChat(
         toApiMessages(history),
-        teacher.systemPrompt,
+        teacher.id,
         (event) => patch((m) => applyEvent(m, event)),
         controller.signal,
       );
