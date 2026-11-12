@@ -57,7 +57,7 @@ export function MessageList({ teacher, messages, isStreaming, onRegenerate, onEd
     <div className="relative min-h-0 flex-1">
       <div ref={ref} onScroll={onScroll} className="fade-edges h-full overflow-y-auto">
         <div className="fade-in mx-auto flex max-w-4xl flex-col gap-7 px-4 pt-8 pb-12 md:px-6">
-          <TeacherIntro teacher={teacher} />
+          <TeacherIntro teacher={teacher} empty={messages.length === 0} />
           {messages.map((m) =>
             m.role === "user" ? (
               <UserMessage
@@ -102,7 +102,7 @@ export function MessageList({ teacher, messages, isStreaming, onRegenerate, onEd
   );
 }
 
-function TeacherIntro({ teacher }: { teacher: Teacher }) {
+function TeacherIntro({ teacher, empty }: { teacher: Teacher; empty: boolean }) {
   return (
     <div className="flex flex-col items-center border-b border-line pt-2 pb-7 text-center">
       <TeacherAvatar name={teacher.name} color={teacher.color} size={64} />
@@ -111,6 +111,11 @@ function TeacherIntro({ teacher }: { teacher: Teacher }) {
         {teacher.specialty} · {teacher.level}
       </p>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">{teacher.personality}</p>
+      {empty && (
+        <p className="mt-5 rounded-full border border-line bg-surface px-4 py-1.5 text-sm text-muted">
+          Say hello to {teacher.name} to start the conversation.
+        </p>
+      )}
     </div>
   );
 }

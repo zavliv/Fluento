@@ -14,15 +14,7 @@ function describeError(err: unknown) {
   return "Something went wrong.";
 }
 
-export function greetingMessage(teacher: Teacher): Message {
-  return {
-    id: `greeting-${teacher.id}`,
-    role: "assistant",
-    parts: [{ type: "text", text: teacher.greeting }],
-    status: "done",
-    createdAt: 0,
-  };
-}
+const NO_MESSAGES: Message[] = [];
 
 export function useTeacherChats() {
   const teachers = useMemo(() => TEACHERS.filter((t) => t.enabled), []);
@@ -43,7 +35,7 @@ export function useTeacherChats() {
 
   const active = useMemo(() => teachers.find((t) => t.id === activeId) ?? null, [teachers, activeId]);
 
-  const messagesFor = useCallback((teacher: Teacher) => chats[teacher.id] ?? [greetingMessage(teacher)], [chats]);
+  const messagesFor = useCallback((teacher: Teacher) => chats[teacher.id] ?? NO_MESSAGES, [chats]);
 
   const messages = useMemo(() => (active ? messagesFor(active) : []), [active, messagesFor]);
 
@@ -100,7 +92,7 @@ export function useTeacherChats() {
     if (!active || streaming) return;
     const history = messagesFor(active);
     const index = history.findLastIndex((m) => m.role === "assistant");
-    if (index <= 0) return;
+    if (index === -1) return;
     void runAssistant(active, history.slice(0, index));
   }, [active, streaming, messagesFor, runAssistant]);
 
@@ -147,7 +139,7 @@ export function useTeacherChats() {
   const lastMessage = useCallback(
     (teacherId: string) => {
       const list = chats[teacherId];
-      return list && list.length > 1 ? list[list.length - 1] : null;
+      return list && list.length > 0 ? list[list.length - 1] : null;
     },
     [chats],
   );

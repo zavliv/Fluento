@@ -133,8 +133,6 @@ export function AssistantMessage({
   const lastPart = message.parts.at(-1);
   const waitingAfterTool = streaming && lastPart?.type === "tool" && lastPart.status !== "running";
 
-  const isGreeting = message.createdAt === 0;
-
   const toggleFeedback = (value: Feedback) => onFeedback(message.id, message.feedback === value ? undefined : value);
 
   return (
@@ -148,7 +146,7 @@ export function AssistantMessage({
             className={cn(streaming && "logo-pulse")}
           />
           <span className="text-sm font-semibold text-ink">{teacher.name}</span>
-          {!isGreeting && <span className="text-xs text-subtle">{formatTime(message.createdAt)}</span>}
+          <span className="text-xs text-subtle">{formatTime(message.createdAt)}</span>
         </div>
 
         {streaming && message.parts.length === 0 && <ThinkingIndicator />}
@@ -206,27 +204,23 @@ export function AssistantMessage({
                 {speaking ? <VolumeX /> : <Volume2 />}
               </IconButton>
             )}
-            {!isGreeting && (
-              <>
-                <IconButton
-                  label="Good response"
-                  size="sm"
-                  onClick={() => toggleFeedback("up")}
-                  className={cn(message.feedback === "up" && "text-accent hover:text-accent")}
-                >
-                  <ThumbsUp className={cn(message.feedback === "up" && "fill-current")} />
-                </IconButton>
-                <IconButton
-                  label="Bad response"
-                  size="sm"
-                  onClick={() => toggleFeedback("down")}
-                  className={cn(message.feedback === "down" && "text-danger hover:text-danger")}
-                >
-                  <ThumbsDown className={cn(message.feedback === "down" && "fill-current")} />
-                </IconButton>
-              </>
-            )}
-            {isLast && canRegenerate && !isGreeting && (
+            <IconButton
+              label="Good response"
+              size="sm"
+              onClick={() => toggleFeedback("up")}
+              className={cn(message.feedback === "up" && "text-accent hover:text-accent")}
+            >
+              <ThumbsUp className={cn(message.feedback === "up" && "fill-current")} />
+            </IconButton>
+            <IconButton
+              label="Bad response"
+              size="sm"
+              onClick={() => toggleFeedback("down")}
+              className={cn(message.feedback === "down" && "text-danger hover:text-danger")}
+            >
+              <ThumbsDown className={cn(message.feedback === "down" && "fill-current")} />
+            </IconButton>
+            {isLast && canRegenerate && (
               <IconButton label="Regenerate" size="sm" onClick={onRegenerate}>
                 <RefreshCw />
               </IconButton>

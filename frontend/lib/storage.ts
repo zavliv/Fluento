@@ -15,7 +15,9 @@ export function loadTeacherChats(): TeacherChats {
     return Object.fromEntries(
       Object.entries(data).map(([id, messages]) => [
         id,
-        messages.map((m) => (m.status === "streaming" ? { ...m, status: "stopped", parts: settleParts(m.parts) } : m)),
+        messages
+          .filter((m) => !m.id.startsWith("greeting-"))
+          .map((m) => (m.status === "streaming" ? { ...m, status: "stopped", parts: settleParts(m.parts) } : m)),
       ]),
     );
   } catch {

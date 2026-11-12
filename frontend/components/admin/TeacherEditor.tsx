@@ -57,11 +57,7 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
                 <p className="truncate text-xs text-muted">{draft.specialty || "Specialty"}</p>
               </div>
             </div>
-            {draft.greeting && (
-              <p className="mt-3 rounded-xl rounded-tl-md bg-hover px-3.5 py-2.5 text-sm leading-relaxed text-ink">
-                {draft.greeting}
-              </p>
-            )}
+            {draft.tagline && <p className="mt-3 text-sm leading-relaxed text-muted">{draft.tagline}</p>}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -130,10 +126,6 @@ export function TeacherEditor({ teacher, isNew, onClose, onSave, onDelete }: Pro
 
           <Field label="Personality" hint="How this teacher talks and behaves.">
             <Textarea rows={2} value={draft.personality} onChange={(e) => set("personality", e.target.value)} />
-          </Field>
-
-          <Field label="Greeting" hint="The first message learners see.">
-            <Textarea rows={2} value={draft.greeting} onChange={(e) => set("greeting", e.target.value)} />
           </Field>
 
           <div className="flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
