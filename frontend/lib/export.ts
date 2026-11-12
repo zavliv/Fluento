@@ -11,7 +11,7 @@ export function exportConversation(teacherName: string, messages: Message[]) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `orbit-${teacherName.toLowerCase()}.md`;
+  link.download = `fluento-${teacherName.toLowerCase()}.md`;
   link.click();
   URL.revokeObjectURL(url);
 }

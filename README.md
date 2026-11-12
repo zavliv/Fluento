@@ -1,8 +1,8 @@
-# Orbit AI
+# Fluento
 
-Orbit AI is a tool-using AI agent with a chat interface. The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**, and shows each tool call Orbit AI makes.
+Fluento is an English learning platform where you talk with AI teachers. Pick a teacher, type or speak, and they correct your English as the conversation flows.
 
-The backend is intentionally small, so Orbit AI can be built step by step.
+The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**. The backend is intentionally small, so it can be built up step by step.
 
 ## Features
 
@@ -26,7 +26,7 @@ The backend is intentionally small, so Orbit AI can be built step by step.
 ## Project structure
 
 ```
-Orbit-AI/
+Fluento/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py        # FastAPI app: /health, /chat (SSE), /transcribe
@@ -83,7 +83,7 @@ Backend settings live in `backend/app/config.py` and are read from `backend/.env
 | `HISTORY_LIMIT`   | `40`                        | Max past messages sent to the model  |
 | `CORS_ORIGINS`    | `["http://localhost:3000"]` | Allowed frontend origins (JSON list) |
 
-The frontend reads `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.
+The frontend reads `NEXT_PUBLIC_API_URL` (backend address) and `NEXT_PUBLIC_SITE_URL` (public site address, used for SEO links) from `frontend/.env.local`.
 
 ## Streaming protocol
 

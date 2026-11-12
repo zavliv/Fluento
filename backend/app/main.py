@@ -10,7 +10,7 @@ from app.llm import stream_reply
 from app.schemas import ChatRequest, TranscriptionResponse
 from app.speech import TranscriptionError, transcribe
 
-app = FastAPI(title="Orbit AI API")
+app = FastAPI(title="Fluento API")
 
 app.add_middleware(
     CORSMiddleware,

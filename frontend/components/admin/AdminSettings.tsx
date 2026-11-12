@@ -77,7 +77,7 @@ export function AdminSettings() {
         <Card title="Learning experience" description="Defaults for new learners." className="lg:col-span-2">
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             <Field label="App name">
-              <Input value="Orbit AI" disabled readOnly />
+              <Input value="Fluento" disabled readOnly />
             </Field>
             <Field label="Default teacher">
               <Select defaultValue="maya" disabled>

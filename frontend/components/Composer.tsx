@@ -17,7 +17,7 @@ type Props = {
 
 const MAX_HEIGHT = 220;
 
-export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder = "Message Orbit AI…" }: Props) {
+export function Composer({ onSend, onStop, isStreaming, autoFocus, placeholder = "Type your message…" }: Props) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   const textBeforeVoice = useRef("");

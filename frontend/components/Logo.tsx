@@ -10,7 +10,7 @@ export function LogoMark({ size = 28, className }: { size?: number; className?: 
       )}
       style={{ width: size, height: size, fontSize: size * 0.5 }}
     >
-      O
+      F
     </span>
   );
 }

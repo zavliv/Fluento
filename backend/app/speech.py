@@ -13,7 +13,7 @@ async def transcribe(audio: bytes, filename: str) -> str:
         result = await client.audio.transcriptions.create(
             model=settings.stt_model,
             file=(filename, audio),
-            prompt="Orbit AI",
+            prompt="Fluento",
         )
     except groq.GroqError as exc:
         raise TranscriptionError(error_message(exc)) from exc

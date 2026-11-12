@@ -25,11 +25,7 @@ export function AdminOverview() {
 
   return (
     <>
-      <PageHeader
-        title="Overview"
-        description="How learners are using Orbit AI."
-        actions={<Badge>Sample data</Badge>}
-      />
+      <PageHeader title="Overview" description="How learners are using Fluento." actions={<Badge>Sample data</Badge>} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, note, icon: Icon }) => (
