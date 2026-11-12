@@ -15,17 +15,14 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { api, type CefrLevel, type LearnerGoal, type Progress, type Recommendation } from "@/lib/api";
 import type { Teacher } from "@/lib/teachers";
-import type { Message } from "@/lib/types";
-import { cn, messageText, shortTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { TodayCard } from "../practice/TodayCard";
 import { TeacherAvatar } from "../TeacherAvatar";
 import { TeacherGrid } from "../TeacherGrid";
 
 type Props = {
   teachers: Teacher[];
-  myTeachers: Teacher[];
   myTeacherIds: string[];
-  lastMessage: (teacherId: string) => Message | null;
   progress: Progress | null;
   tested: CefrLevel | null;
   onSelect: (teacherId: string) => void;
@@ -70,9 +67,7 @@ function readDismissed() {
 
 export function Home({
   teachers,
-  myTeachers,
   myTeacherIds,
-  lastMessage,
   progress,
   tested,
   onSelect,
@@ -136,11 +131,6 @@ export function Home({
 
   const scrollToTeachers = () => teachersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const recent = myTeachers
-    .map((t) => ({ teacher: t, message: lastMessage(t.id) }))
-    .sort((a, b) => (b.message?.createdAt ?? 0) - (a.message?.createdAt ?? 0))
-    .slice(0, 3);
-
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-6">
@@ -189,38 +179,6 @@ export function Home({
             )}
           </div>
         </div>
-
-        {recent.length > 0 && (
-          <section className="@container mt-8">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-[18px] font-bold tracking-[-0.015em] text-ink">Continue learning</h2>
-              <span className="text-sm text-muted">{myTeachers.length} of your teachers</span>
-            </div>
-            <div className="mt-4 grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
-              {recent.map(({ teacher, message }) => (
-                <button
-                  key={teacher.id}
-                  type="button"
-                  onClick={() => onSelect(teacher.id)}
-                  className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-left transition-colors hover:border-accent/40"
-                >
-                  <TeacherAvatar name={teacher.name} color={teacher.color} size={40} />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-[15px] font-semibold text-ink">{teacher.name}</span>
-                      {message && <span className="shrink-0 text-xs text-subtle">{shortTime(message.createdAt)}</span>}
-                    </span>
-                    <span className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted">
-                      {message
-                        ? `${message.role === "user" ? "You: " : ""}${messageText(message)}`
-                        : `Say hello to ${teacher.name}`}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section ref={teachersRef} className="mt-8 scroll-mt-6">
           <div className="mb-4 flex items-baseline justify-between gap-3">

@@ -402,9 +402,7 @@ export default function ChatApp() {
         ) : (
           <Home
             teachers={teachers}
-            myTeachers={chat.myTeachers}
             myTeacherIds={myTeacherIds}
-            lastMessage={chat.lastMessage}
             progress={progress}
             tested={user.level ?? null}
             onSelect={openTeacher}
