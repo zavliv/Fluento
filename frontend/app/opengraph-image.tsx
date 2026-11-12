@@ -1,11 +1,15 @@
 import { ImageResponse } from "next/og";
-import { TEACHERS } from "@/lib/teachers";
+import { API_URL } from "@/lib/api";
+import type { Teacher } from "@/lib/teachers";
 
 export const alt = "Fluento – Learn English by talking with AI teachers";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
+export default async function OpengraphImage() {
+  const teachers: Teacher[] = await fetch(`${API_URL}/teachers`)
+    .then((res) => (res.ok ? res.json() : []))
+    .catch(() => []);
   return new ImageResponse(
     <div
       style={{
@@ -35,7 +39,7 @@ export default function OpengraphImage() {
         </div>
       </div>
       <div style={{ display: "flex", gap: 16 }}>
-        {TEACHERS.map((t) => (
+        {teachers.map((t) => (
           <div
             key={t.id}
             style={{

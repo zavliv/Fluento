@@ -1,8 +1,16 @@
 import { ClientRoot } from "@/components/ClientRoot";
 import { SITE } from "@/lib/site";
-import { TEACHERS } from "@/lib/teachers";
+import { API_URL } from "@/lib/api";
+import type { Teacher } from "@/lib/teachers";
 
-const teachers = TEACHERS.filter((t) => t.enabled);
+async function loadTeachers(): Promise<Teacher[]> {
+  try {
+    const res = await fetch(`${API_URL}/teachers`, { next: { revalidate: 300 } });
+    return res.ok ? ((await res.json()) as Teacher[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 const structuredData = {
   "@context": "https://schema.org",
@@ -17,7 +25,8 @@ const structuredData = {
   audience: { "@type": "EducationalAudience", educationalRole: "student" },
 };
 
-export default function Home() {
+export default async function Home() {
+  const teachers = await loadTeachers();
   return (
     <>
       <script

@@ -1,7 +1,9 @@
 "use client";
 
 import { ArrowRight, Briefcase, Check, Languages, Mic, Monitor, Moon, SpellCheck, Sun } from "lucide-react";
+import Link from "next/link";
 import type { Theme } from "@/hooks/useTheme";
+import type { User } from "@/lib/api";
 import type { Teacher } from "@/lib/teachers";
 import { IconButton } from "../IconButton";
 import { TeacherGrid } from "../TeacherGrid";
@@ -10,7 +12,9 @@ import { ConversationPreview } from "./ConversationPreview";
 
 type Props = {
   teachers: Teacher[];
+  user: User | null;
   onSelect: (teacherId: string) => void;
+  onLogout: () => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
 };
@@ -52,7 +56,7 @@ const FEATURES = [
 
 const NEXT_THEME: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
 
-export function LandingPage({ teachers, onSelect, theme, onThemeChange }: Props) {
+export function LandingPage({ teachers, user, onSelect, onLogout, theme, onThemeChange }: Props) {
   const guide = teachers.find((t) => t.id === "maya") ?? teachers[0];
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
@@ -85,13 +89,41 @@ export function LandingPage({ teachers, onSelect, theme, onThemeChange }: Props)
             <IconButton label={`Theme: ${theme}`} tooltip="bottom" onClick={() => onThemeChange(NEXT_THEME[theme])}>
               <ThemeIcon />
             </IconButton>
-            <button
-              type="button"
-              onClick={() => scrollTo("teachers")}
-              className="h-9 rounded-xl bg-ink px-4 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
-            >
-              Start learning
-            </button>
+            {user ? (
+              <>
+                <span className="hidden text-sm text-muted sm:inline">Hi, {user.name.split(" ")[0]}</span>
+                {user.role === "admin" && (
+                  <Link
+                    href="/admin"
+                    className="h-9 rounded-xl px-3 text-sm leading-9 font-medium text-muted hover:bg-hover hover:text-ink"
+                  >
+                    Admin
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="h-9 rounded-xl border border-line px-4 text-sm font-semibold text-ink transition-colors hover:border-accent/40"
+                >
+                  Log out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="h-9 rounded-xl px-3 text-sm leading-9 font-semibold text-ink hover:bg-hover"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="h-9 rounded-xl bg-ink px-4 text-sm leading-9 font-semibold text-bg transition-opacity hover:opacity-90"
+                >
+                  Sign up free
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>

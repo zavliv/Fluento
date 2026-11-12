@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, LoaderCircle } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useReadAloud } from "@/hooks/useReadAloud";
 import type { Teacher } from "@/lib/teachers";
@@ -13,6 +13,7 @@ import { TeacherAvatar } from "./TeacherAvatar";
 type Props = {
   teacher: Teacher;
   online: boolean | null;
+  loading?: boolean;
   onSend: (text: string) => void;
   messages: Message[];
   isStreaming: boolean;
@@ -24,6 +25,7 @@ type Props = {
 export function MessageList({
   teacher,
   online,
+  loading,
   onSend,
   messages,
   isStreaming,
@@ -69,7 +71,12 @@ export function MessageList({
     <div className="relative min-h-0 flex-1">
       <div ref={ref} onScroll={onScroll} className="fade-edges h-full overflow-y-auto">
         <div className="fade-in mx-auto flex max-w-4xl flex-col gap-7 px-4 pt-8 pb-12 md:px-6">
-          <TeacherIntro teacher={teacher} online={online} empty={messages.length === 0} onSend={onSend} />
+          <TeacherIntro teacher={teacher} online={online} empty={!loading && messages.length === 0} onSend={onSend} />
+          {loading && (
+            <div className="flex justify-center py-6 text-subtle">
+              <LoaderCircle className="size-5 animate-spin" aria-label="Loading conversation" />
+            </div>
+          )}
           {messages.map((m) =>
             m.role === "user" ? (
               <UserMessage
@@ -142,7 +149,7 @@ function TeacherIntro({ teacher, online, empty, onSend }: IntroProps) {
           <span className="text-subtle">{online ? " · Ready to chat" : " · Check that the backend is running"}</span>
         </p>
       )}
-      <p className="relative mt-3 max-w-md text-sm leading-relaxed text-muted">{teacher.personality}</p>
+      <p className="relative mt-3 max-w-md text-sm leading-relaxed text-muted">{teacher.description}</p>
 
       {empty && (
         <div className="relative mt-7 w-full max-w-xl">

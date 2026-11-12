@@ -2,7 +2,7 @@
 
 Fluento is an English learning platform where you talk with AI teachers. Pick a teacher, type or speak, and they correct your English as the conversation flows.
 
-The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**. The backend is intentionally small, so it can be built up step by step.
+The **Next.js** frontend streams replies from a **FastAPI** backend powered by **Groq**. Everything is dynamic: teachers, their AI personas, the shared teaching rules, app settings, users and conversations all live in **MongoDB** and are managed from the admin panel.
 
 ## Features
 
@@ -15,7 +15,8 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 - Voice input that writes your words as you speak, and read-aloud replies in the teacher's voice
 - Streaming replies with Markdown, tables and code blocks
 - Clear or export a conversation, with undo
-- Admin panel at `/admin` to manage teachers (static for now)
+- Accounts with email and password sign-up and log-in; conversations are saved to your account
+- Admin panel at `/admin`: live stats, full teacher and persona editor with a prompt preview, shared rules, app and model settings, users and roles, and every learner conversation
 - Command palette (`Cmd/Ctrl + K`) to jump to any teacher, plus a shortcuts dialog (`Cmd/Ctrl + /`)
 - Light, dark and system themes, keyboard shortcuts and a mobile-friendly layout
 
@@ -24,7 +25,8 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 | Layer    | Tech                                                     |
 | -------- | -------------------------------------------------------- |
 | Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS v4 |
-| Backend  | Python 3.12+, FastAPI, Groq SDK, pydantic-settings, uv   |
+| Backend  | Python 3.12+, FastAPI, Groq SDK, PyMongo (async), uv     |
+| Database | MongoDB                                                  |
 
 ## Project structure
 
@@ -32,23 +34,22 @@ The **Next.js** frontend streams replies from a **FastAPI** backend powered by *
 Fluento/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py            # FastAPI app: /health, /teachers, /chat (SSE), /transcribe
+│   │   ├── main.py            # FastAPI app; seeds the database on startup
 │   │   ├── config.py          # Settings from env vars / .env
-│   │   ├── llm.py             # Groq client and streaming completion
-│   │   ├── speech.py          # Speech-to-text fallback
-│   │   ├── schemas.py         # Request and response models
-│   │   └── agents/
-│   │       ├── registry.py    # Every teacher agent, by id
-│   │       ├── core/          # Persona model, prompt builder, TeacherAgent
-│   │       ├── rules/         # Shared rules: identity, conversation, corrections, language, formatting, safety
-│   │       └── teachers/      # One persona file per teacher (maya.py, arjun.py, ...)
+│   │   ├── db.py              # MongoDB client and indexes
+│   │   ├── security.py        # Password hashing, JWT session cookie, login/admin guards
+│   │   ├── routers/           # public, auth, me, chat (SSE), admin
+│   │   ├── schemas/           # Request and response models
+│   │   ├── services/          # Groq LLM, speech-to-text, app settings, conversations
+│   │   ├── agents/            # System prompt builder and teacher agent
+│   │   └── seed/              # Default teachers, rules and settings for a new database
 │   ├── pyproject.toml
 │   └── .env.example
 └── frontend/
-    ├── app/               # layout, page, global styles
-    ├── components/        # Sidebar, MessageList, Composer, ToolCallCard, ...
-    ├── hooks/             # useChat, useTheme, useBackendStatus
-    ├── lib/               # SSE client, event reducer, types, storage
+    ├── app/               # Pages: home, login, signup, admin/*
+    ├── components/        # Chat UI, landing page, auth, admin
+    ├── hooks/             # useTeacherChats, useTeachers, useLoad, ...
+    ├── lib/               # API client, SSE client, types
     └── .env.example
 ```
 
@@ -56,7 +57,9 @@ Fluento/
 
 ### Backend
 
-Get a free API key from [console.groq.com](https://console.groq.com) and set `GROQ_API_KEY` in `backend/.env`.
+Get a free API key from [console.groq.com](https://console.groq.com) and a MongoDB connection string (for example a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster), then fill in `backend/.env`.
+
+On first start the backend creates the indexes, seeds the seven teachers, the shared rules and the default settings, and creates an admin account from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Log in with it and open `/admin`.
 
 ```bash
 cd backend
@@ -80,17 +83,32 @@ Open http://localhost:3000.
 
 Backend settings live in `backend/app/config.py` and are read from `backend/.env`:
 
-| Variable          | Default                     | Description                          |
-| ----------------- | --------------------------- | ------------------------------------ |
-| `GROQ_API_KEY`    | (required)                  | Groq API key                         |
-| `LLM_MODEL`       | `openai/gpt-oss-120b`       | Groq model to use                    |
-| `LLM_MAX_TOKENS`  | `4096`                      | Max tokens per reply                 |
-| `LLM_TEMPERATURE` | `0.3`                       | Sampling temperature                 |
-| `STT_MODEL`       | `whisper-large-v3-turbo`    | Fallback speech-to-text model        |
-| `HISTORY_LIMIT`   | `40`                        | Max past messages sent to the model  |
-| `CORS_ORIGINS`    | `["http://localhost:3000"]` | Allowed frontend origins (JSON list) |
+| Variable         | Default                     | Description                           |
+| ---------------- | --------------------------- | ------------------------------------- |
+| `GROQ_API_KEY`   | (required)                  | Groq API key                          |
+| `MONGODB_URI`    | (required)                  | MongoDB connection string             |
+| `MONGODB_DB`     | `fluento`                   | Database name                         |
+| `JWT_SECRET`     | (required)                  | Secret for signing session cookies    |
+| `ADMIN_EMAIL`    | (optional)                  | Admin account created on first start  |
+| `ADMIN_PASSWORD` | (optional)                  | Password for that admin account       |
+| `SESSION_DAYS`   | `30`                        | How long a login lasts                |
+| `COOKIE_SECURE`  | `false`                     | Set to `true` when serving over HTTPS |
+| `CORS_ORIGINS`   | `["http://localhost:3000"]` | Allowed frontend origins (JSON list)  |
+
+The model, temperature, max tokens, history limit, speech-to-text model and sign-up switch are stored in MongoDB and edited from **Admin → Settings**; changes apply without a restart.
 
 The frontend reads `NEXT_PUBLIC_API_URL` (backend address) and `NEXT_PUBLIC_SITE_URL` (public site address, used for SEO links) from `frontend/.env.local`.
+
+## API
+
+| Area   | Endpoints                                                                                                       | Access    |
+| ------ | --------------------------------------------------------------------------------------------------------------- | --------- |
+| Public | `GET /health`, `GET /teachers`, `GET /app-settings`                                                             | Anyone    |
+| Auth   | `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`                                    | Anyone    |
+| Learn  | `POST /chat` (SSE), `POST /transcribe`, `GET/PUT /me/teachers`, `GET/PUT/DELETE /me/conversations/{teacher_id}` | Logged in |
+| Admin  | `/admin/stats`, `/admin/teachers`, `/admin/rules`, `/admin/settings`, `/admin/users`, `/admin/conversations`    | Admins    |
+
+Sessions use an httpOnly JWT cookie. Teacher personas are only returned by the admin API; learners see public profile fields.
 
 ## Streaming protocol
 
@@ -137,5 +155,6 @@ Any backend that emits these events works with the UI.
 - [x] FastAPI backend with streaming replies from Groq
 - [ ] Add tools (calculator, current time, web search)
 - [ ] Agent loop: call tools until the task is done
-- [ ] Conversation memory on the backend
+- [x] Conversation memory on the backend (MongoDB)
+- [x] Accounts and an admin panel
 - [ ] Tests and Docker setup

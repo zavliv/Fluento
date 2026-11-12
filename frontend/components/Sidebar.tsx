@@ -3,6 +3,7 @@
 import {
   GraduationCap,
   Keyboard,
+  LogOut,
   LayoutDashboard,
   LayoutGrid,
   Monitor,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Theme } from "@/hooks/useTheme";
-import { API_URL } from "@/lib/api";
+import type { User } from "@/lib/api";
 import { toSpeakableText } from "@/lib/export";
 import type { Teacher } from "@/lib/teachers";
 import type { Message } from "@/lib/types";
@@ -40,6 +41,8 @@ type Props = {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   online: boolean | null;
+  user: User;
+  onLogout: () => void;
 };
 
 const SIDEBAR_BUTTON =
@@ -183,20 +186,38 @@ export function Sidebar(props: Props) {
         </nav>
 
         <footer className="space-y-3 border-t border-line p-3">
-          <div className="flex items-center justify-between gap-2">
-            <BackendStatus online={props.online} />
-            <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-2.5 rounded-xl px-1.5 py-1">
+            <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-hover text-sm font-semibold text-ink">
+              {props.user.name.trim().charAt(0).toUpperCase()}
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-[var(--sidebar)]",
+                  props.online === null ? "bg-subtle" : props.online ? "bg-success" : "bg-danger",
+                )}
+              />
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-sm font-semibold text-ink">{props.user.name}</p>
+              <p className="truncate text-xs text-subtle">{props.user.email}</p>
+            </div>
+            <div className="flex shrink-0 items-center">
+              {props.user.role === "admin" && (
+                <Link
+                  href="/admin"
+                  aria-label="Admin panel"
+                  data-tip="Admin panel"
+                  className="tip tip-top inline-flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-ink"
+                >
+                  <LayoutDashboard className="size-4" />
+                </Link>
+              )}
               <IconButton label={`Keyboard shortcuts (${shortcut("/")})`} onClick={props.onOpenShortcuts}>
                 <Keyboard />
               </IconButton>
-              <Link
-                href="/admin"
-                aria-label="Admin panel"
-                data-tip="Admin panel"
-                className="tip tip-top inline-flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-ink"
-              >
-                <LayoutDashboard className="size-4" />
-              </Link>
+              <IconButton label="Log out" onClick={props.onLogout}>
+                <LogOut />
+              </IconButton>
             </div>
           </div>
           <ThemeSwitch theme={props.theme} onChange={props.onThemeChange} />
@@ -323,21 +344,6 @@ function StatusDot({ online }: { online: boolean | null }) {
         )}
       />
     </span>
-  );
-}
-
-function BackendStatus({ online }: { online: boolean | null }) {
-  const host = API_URL.replace(/^https?:\/\//, "");
-  return (
-    <div className="flex min-w-0 items-center gap-2.5 px-2 py-1">
-      <StatusDot online={online} />
-      <div className="min-w-0 leading-tight">
-        <p className="text-xs font-medium text-ink">
-          {online === null ? "Checking backend…" : online ? "Backend connected" : "Backend offline"}
-        </p>
-        <p className="truncate font-mono text-[11px] text-subtle">{host}</p>
-      </div>
-    </div>
   );
 }
 

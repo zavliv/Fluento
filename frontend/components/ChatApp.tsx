@@ -1,8 +1,11 @@
 "use client";
 
 import { Keyboard, LayoutGrid, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { LoaderCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBackendStatus } from "@/hooks/useBackendStatus";
+import { useTeachers } from "@/hooks/useTeachers";
 import { useTeacherChats } from "@/hooks/useTeacherChats";
 import { useTheme } from "@/hooks/useTheme";
 import { exportConversation } from "@/lib/export";
@@ -17,28 +20,51 @@ import { Sidebar } from "./Sidebar";
 import { TeacherAvatar } from "./TeacherAvatar";
 import { LandingPage } from "./landing/LandingPage";
 import { TeacherDirectory } from "./TeacherDirectory";
+import { useAuth } from "./auth/AuthProvider";
 import { useToast } from "./ui/Toast";
 
 const isMobile = () => window.innerWidth < 768;
 
 export default function ChatApp() {
-  const chat = useTeacherChats();
+  const { user, loading: authLoading, logout } = useAuth();
+  const { teachers, loading: teachersLoading } = useTeachers();
+  const chat = useTeacherChats(teachers, Boolean(user));
+  const router = useRouter();
+  const params = useSearchParams();
   const { theme, setTheme } = useTheme();
   const { online, model } = useBackendStatus();
   const toast = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const { teachers, active, messages, select, stop, isStreaming, clear, restore } = chat;
+  const { active, messages, select, stop, isStreaming, clear, restore } = chat;
   const { myTeacherIds, addTeacher, removeTeacher } = chat;
 
   const openTeacher = useCallback(
     (id: string | null) => {
+      if (!user) {
+        router.push(id ? `/signup?teacher=${encodeURIComponent(id)}` : "/signup");
+        return;
+      }
       select(id);
       if (isMobile()) setSidebarOpen(false);
     },
-    [select],
+    [user, router, select],
   );
+
+  const pendingTeacher = params.get("teacher");
+  const handledPending = useRef(false);
+  useEffect(() => {
+    if (!pendingTeacher || handledPending.current || !user || !chat.ready || teachers.length === 0) return;
+    handledPending.current = true;
+    if (teachers.some((t) => t.id === pendingTeacher)) select(pendingTeacher);
+    router.replace("/");
+  }, [pendingTeacher, user, chat.ready, teachers, select, router]);
+
+  const signOut = useCallback(async () => {
+    await logout();
+    toast({ message: "You're logged out" });
+  }, [logout, toast]);
 
   const clearConversation = useCallback(() => {
     if (!active) return;
@@ -125,10 +151,25 @@ export default function ChatApp() {
     return [...teacherCommands, ...actions];
   }, [teachers, openTeacher, setTheme]);
 
-  if (chat.myTeachers.length === 0 && !active) {
+  if (authLoading || teachersLoading || (user && !chat.ready)) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-bg text-subtle">
+        <LoaderCircle className="size-5 animate-spin" aria-label="Loading" />
+      </div>
+    );
+  }
+
+  if (!user || (chat.myTeachers.length === 0 && !active)) {
     return (
       <>
-        <LandingPage teachers={teachers} onSelect={openTeacher} theme={theme} onThemeChange={setTheme} />
+        <LandingPage
+          teachers={teachers}
+          user={user}
+          onSelect={openTeacher}
+          onLogout={signOut}
+          theme={theme}
+          onThemeChange={setTheme}
+        />
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
         <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       </>
@@ -152,6 +193,8 @@ export default function ChatApp() {
         theme={theme}
         onThemeChange={setTheme}
         online={online}
+        user={user}
+        onLogout={signOut}
       />
 
       <main className="flex min-w-0 flex-1 flex-col" style={active ? teacherTheme(active.color) : undefined}>
@@ -173,6 +216,7 @@ export default function ChatApp() {
               key={active.id}
               teacher={active}
               online={online}
+              loading={chat.loadingConversation}
               messages={messages}
               onSend={chat.send}
               isStreaming={isStreaming}

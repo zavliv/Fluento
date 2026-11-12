@@ -1,0 +1,46 @@
+from collections.abc import AsyncIterator
+
+import groq
+
+from app.config import settings
+from app.services.app_settings import get_app_settings
+
+client = groq.AsyncGroq(api_key=settings.groq_api_key.get_secret_value())
+
+
+def error_message(exc: groq.GroqError) -> str:
+    if isinstance(exc, groq.RateLimitError):
+        return "The model is busy right now. Please try again in a moment."
+    if isinstance(exc, groq.AuthenticationError):
+        return "The Groq API key is invalid. Check GROQ_API_KEY in backend/.env."
+    if isinstance(exc, groq.APIConnectionError):
+        return "Couldn't reach Groq. Check your internet connection."
+    return "The model returned an error. Please try again."
+
+
+async def stream_completion(
+    system_prompt: str,
+    messages: list[dict],
+    temperature: float | None = None,
+) -> AsyncIterator[dict]:
+    app_settings = await get_app_settings()
+    history = [{"role": "system", "content": system_prompt}]
+    history += [{"role": m["role"], "content": m["content"]} for m in messages[-app_settings["history_limit"] :]]
+
+    try:
+        stream = await client.chat.completions.create(
+            model=app_settings["llm_model"],
+            messages=history,
+            temperature=app_settings["llm_temperature"] if temperature is None else temperature,
+            max_completion_tokens=app_settings["llm_max_tokens"],
+            stream=True,
+        )
+        async for chunk in stream:
+            text = chunk.choices[0].delta.content if chunk.choices else None
+            if text:
+                yield {"type": "text", "text": text}
+    except groq.GroqError as exc:
+        yield {"type": "error", "message": error_message(exc)}
+        return
+
+    yield {"type": "done"}
