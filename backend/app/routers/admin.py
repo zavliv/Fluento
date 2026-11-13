@@ -3,7 +3,8 @@ from datetime import UTC, datetime, timedelta
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
 from app.agents.teacher_agent import system_prompt_for
@@ -54,6 +55,7 @@ from app.services.level_test import refilling as quiz_refilling
 from app.services.level_test import save_config as save_level_test_config
 from app.services.app_settings import SETTINGS_ID, clear_settings_cache, get_app_settings
 from app.services.memory import get_memory
+from app.services.speech import SpeechError, synthesize
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(current_admin)])
 
@@ -577,3 +579,19 @@ async def review_flag(flag_id: str, body: FlagReview) -> dict:
     if not result.matched_count:
         raise HTTPException(status_code=404, detail="Flag not found.")
     return {"ok": True}
+
+
+class VoicePreview(BaseModel):
+    voice: str = Field(min_length=1, max_length=40)
+    model: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/speech/preview")
+async def preview_voice(body: VoicePreview) -> Response:
+    app_name = (await get_app_settings())["app_name"]
+    text = f"Hi, I'm your English teacher on {app_name}. Let's practise speaking together. How was your day?"
+    try:
+        audio = await synthesize(text, body.voice, body.model)
+    except SpeechError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return Response(content=audio, media_type="audio/wav")

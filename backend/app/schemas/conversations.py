@@ -18,6 +18,7 @@ class ChatRequest(BaseModel):
     teacher_id: str
     messages: list[StoredMessage] = Field(min_length=1)
     reply_id: str = Field(min_length=1, max_length=64)
+    mode: Literal["text", "voice"] = "text"
 
 
 class MessagesUpdate(BaseModel):

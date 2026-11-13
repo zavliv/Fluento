@@ -31,6 +31,8 @@ function toHistory(messages: Message[]) {
 
 const POLL_MS = 4000;
 
+export type AssistantResult = { text: string; error: string | null; queued: boolean };
+
 export function useTeacherChats(teachers: Teacher[], signedIn: boolean, onQueuedReply?: () => void) {
   const [chats, setChats] = useState<TeacherChats>({});
   const [summaries, setSummaries] = useState<Record<string, Message>>({});
@@ -39,6 +41,11 @@ export function useTeacherChats(teachers: Teacher[], signedIn: boolean, onQueued
   const [ready, setReady] = useState(false);
   const [streaming, setStreaming] = useState<{ teacherId: string; messageId: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const chatsRef = useRef(chats);
+
+  useEffect(() => {
+    chatsRef.current = chats;
+  }, [chats]);
 
   const loadConversation = useCallback((teacherId: string) => {
     api
@@ -122,55 +129,100 @@ export function useTeacherChats(teachers: Teacher[], signedIn: boolean, onQueued
     [saveMyTeachers],
   );
 
-  const runAssistant = useCallback(async (teacher: Teacher, history: Message[]) => {
-    const assistant: Message = { id: uid(), role: "assistant", parts: [], status: "streaming", createdAt: Date.now() };
-    setChats((c) => ({ ...c, [teacher.id]: [...history, assistant] }));
-    setMyTeacherIds((ids) => [teacher.id, ...ids.filter((id) => id !== teacher.id)]);
+  const runAssistant = useCallback(
+    async (
+      teacher: Teacher,
+      history: Message[],
+      mode: "text" | "voice" = "text",
+      onText?: (delta: string) => void,
+    ): Promise<AssistantResult> => {
+      const assistant: Message = {
+        id: uid(),
+        role: "assistant",
+        parts: [],
+        status: "streaming",
+        createdAt: Date.now(),
+      };
+      setChats((c) => ({ ...c, [teacher.id]: [...history, assistant] }));
+      setMyTeacherIds((ids) => [teacher.id, ...ids.filter((id) => id !== teacher.id)]);
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setStreaming({ teacherId: teacher.id, messageId: assistant.id });
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setStreaming({ teacherId: teacher.id, messageId: assistant.id });
 
-    const patch = (fn: (m: Message) => Message) =>
-      setChats((c) => ({
-        ...c,
-        [teacher.id]: (c[teacher.id] ?? []).map((m) => (m.id === assistant.id ? fn(m) : m)),
-      }));
-
-    try {
-      await streamChat(
-        teacher.id,
-        toHistory(history),
-        assistant.id,
-        (event) => {
-          if (event.type === "read") {
-            setChats((c) => ({
-              ...c,
-              [teacher.id]: (c[teacher.id] ?? []).map((m) => (m.role === "user" ? { ...m, receipt: "read" } : m)),
-            }));
-          } else if (event.type === "queued") {
-            setChats((c) => ({ ...c, [teacher.id]: (c[teacher.id] ?? []).filter((m) => m.id !== assistant.id) }));
-          } else {
-            patch((m) => applyEvent(m, event));
-          }
-        },
-        controller.signal,
-      );
-      patch((m) => (m.status === "streaming" ? { ...m, status: "done", parts: settleParts(m.parts) } : m));
-    } catch (err) {
-      if (controller.signal.aborted) patch((m) => ({ ...m, status: "stopped", parts: settleParts(m.parts) }));
-      else
-        patch((m) => ({
-          ...m,
-          status: "error",
-          error: err instanceof Error ? err.message : "Something went wrong.",
-          parts: settleParts(m.parts),
+      const patch = (fn: (m: Message) => Message) =>
+        setChats((c) => ({
+          ...c,
+          [teacher.id]: (c[teacher.id] ?? []).map((m) => (m.id === assistant.id ? fn(m) : m)),
         }));
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setStreaming(null);
-    }
-  }, []);
+
+      let text = "";
+      let queued = false;
+      try {
+        await streamChat(
+          teacher.id,
+          toHistory(history),
+          assistant.id,
+          (event) => {
+            if (event.type === "text") {
+              text += event.text;
+              onText?.(event.text);
+            }
+            if (event.type === "queued") queued = true;
+            if (event.type === "read") {
+              setChats((c) => ({
+                ...c,
+                [teacher.id]: (c[teacher.id] ?? []).map((m) => (m.role === "user" ? { ...m, receipt: "read" } : m)),
+              }));
+            } else if (event.type === "queued") {
+              setChats((c) => ({ ...c, [teacher.id]: (c[teacher.id] ?? []).filter((m) => m.id !== assistant.id) }));
+            } else {
+              patch((m) => applyEvent(m, event));
+            }
+          },
+          controller.signal,
+          mode,
+        );
+        patch((m) => (m.status === "streaming" ? { ...m, status: "done", parts: settleParts(m.parts) } : m));
+        return { text: text.trim(), error: null, queued };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Something went wrong.";
+        if (controller.signal.aborted) patch((m) => ({ ...m, status: "stopped", parts: settleParts(m.parts) }));
+        else patch((m) => ({ ...m, status: "error", error: message, parts: settleParts(m.parts) }));
+        return { text: text.trim(), error: controller.signal.aborted ? null : message, queued };
+      } finally {
+        if (abortRef.current === controller) abortRef.current = null;
+        setStreaming(null);
+      }
+    },
+    [],
+  );
+
+  const ask = useCallback(
+    async (teacherId: string, text: string, onText?: (delta: string) => void): Promise<AssistantResult> => {
+      const teacher = teachers.find((t) => t.id === teacherId);
+      const content = text.trim();
+      if (!teacher || !content) return { text: "", error: "That teacher isn't available.", queued: false };
+      let history = chatsRef.current[teacherId];
+      if (history === undefined) {
+        history = await api
+          .conversation(teacherId)
+          .then((stored) => stored.map(fromStoredMessage))
+          .catch(() => []);
+      }
+      saveMyTeachers((ids) => (ids.includes(teacherId) ? ids : [teacherId, ...ids]));
+      const userMessage: Message = {
+        id: uid(),
+        role: "user",
+        parts: [{ type: "text", text: content }],
+        status: "done",
+        receipt: "sent",
+        createdAt: Date.now(),
+      };
+      return runAssistant(teacher, [...history, userMessage], "voice", onText);
+    },
+    [teachers, saveMyTeachers, runAssistant],
+  );
 
   const waiting = Boolean(active && !streaming && messages.length > 0 && messages[messages.length - 1].role === "user");
   useEffect(() => {
@@ -279,6 +331,7 @@ export function useTeacherChats(teachers: Teacher[], signedIn: boolean, onQueued
     streamingTeacherId: streaming?.teacherId ?? null,
     isStreaming: streaming !== null,
     send,
+    ask,
     stop,
     regenerate,
     editMessage,

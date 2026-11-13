@@ -140,7 +140,7 @@ type AssistantProps = {
   canSpeak: boolean;
   onRegenerate: () => void;
   onFeedback: (id: string, feedback: Feedback | undefined) => void;
-  onReadAloud: (id: string, text: string, voice: Teacher["voice"]) => void;
+  onReadAloud: (id: string, text: string) => void;
 };
 
 export function AssistantMessage({
@@ -229,7 +229,7 @@ export function AssistantMessage({
               <IconButton
                 label={speaking ? "Stop reading" : "Read aloud"}
                 size="sm"
-                onClick={() => onReadAloud(message.id, text, teacher.voice)}
+                onClick={() => onReadAloud(message.id, text)}
                 className={cn(speaking && "bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent")}
               >
                 {speaking ? <VolumeX /> : <Volume2 />}

@@ -1,4 +1,5 @@
 PLACEHOLDERS = ("{name}", "{app}", "{teachers}")
+VOICE_SKIPPED_RULES = {"corrections", "formatting"}
 
 
 def _bullets(items: list[str]) -> str:
@@ -71,10 +72,32 @@ def build_system_prompt(
     app_name: str,
     other_teachers: list[dict],
     learner: str = "",
+    voice: bool = False,
 ) -> str:
     p = teacher.get("persona", {})
     name = teacher["name"]
     values = {"{name}": name, "{app}": app_name, "{teachers}": describe_teachers(other_teachers)}
+    if voice:
+        sections = [s for s in rule_sections if s.get("_id", s.get("id")) not in VOICE_SKIPPED_RULES]
+        return f"""# Who you are
+You are {name}, {teacher.get("role", "an English teacher")} on {app_name}, an English learning app. {p.get("background", "")}
+Right now you are on a live voice call with the learner. Everything you say is spoken aloud, so you talk like a \
+warm, real person having a relaxed conversation, not like a lesson or a document.
+
+## Personality
+{_bullets(p.get("personality", []))}
+
+## What you like to talk about
+{_bullets(p.get("focus", []))}
+
+## Boundaries
+{_bullets(p.get("boundaries", []))}
+
+## Your languages
+{", ".join(p.get("languages", ["English"]))}
+
+{learner}# Rules for every {app_name} teacher
+{render_rules(sections, values)}"""
     return f"""# Who you are
 You are {name}, {teacher.get("role", "an English teacher")} on {app_name}, an English learning app. {p.get("background", "")}
 

@@ -85,7 +85,7 @@ export function TeachersList() {
                   {t.specialty}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-subtle">
-                  {t.level} · {t.voice} voice · {t.persona.languages.join(", ")} · updated {timeAgo(t.updated_at)}
+                  {t.level} · {t.persona.languages.join(", ")} · updated {timeAgo(t.updated_at)}
                 </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-muted">

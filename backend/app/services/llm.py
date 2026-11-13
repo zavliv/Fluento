@@ -33,10 +33,13 @@ async def stream_completion(
     system_prompt: str,
     messages: list[dict],
     temperature: float | None = None,
+    final_note: str | None = None,
 ) -> AsyncIterator[dict]:
     app_settings = await get_app_settings()
     history = [{"role": "system", "content": system_prompt}]
     history += [{"role": m["role"], "content": m["content"]} for m in messages[-app_settings["history_limit"] :]]
+    if final_note:
+        history.append({"role": "system", "content": final_note})
 
     try:
         stream = await chat_create(

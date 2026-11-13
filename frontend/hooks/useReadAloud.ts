@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toSpeakableText } from "@/lib/export";
 import { speak, stopSpeech } from "@/lib/speech";
-import type { TeacherVoice } from "@/lib/teachers";
 
 export function useReadAloud() {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -12,7 +11,7 @@ export function useReadAloud() {
   useEffect(() => () => stopSpeech(), []);
 
   const toggle = useCallback(
-    (id: string, text: string, voice: TeacherVoice) => {
+    (id: string, text: string) => {
       if (speakingId === id) {
         stopSpeech();
         setSpeakingId(null);
@@ -20,7 +19,6 @@ export function useReadAloud() {
       }
       setSpeakingId(id);
       void speak(toSpeakableText(text), {
-        gender: voice,
         onEnd: () => setSpeakingId((current) => (current === id ? null : current)),
       });
     },

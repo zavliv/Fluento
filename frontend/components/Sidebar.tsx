@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AudioLines,
   Flame,
   GraduationCap,
   Keyboard,
@@ -44,6 +45,8 @@ type Props = {
   onOpenMistakes: () => void;
   practiceOpen: boolean;
   onOpenPractice: () => void;
+  voiceOpen: boolean;
+  onOpenVoice: () => void;
   streak: number | null;
   practiceDone: boolean;
   theme: Theme;
@@ -150,6 +153,18 @@ export function Sidebar(props: Props) {
                 {props.streak}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={props.onOpenVoice}
+            aria-current={props.voiceOpen ? "page" : undefined}
+            className={cn(
+              "flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-sm transition-colors",
+              props.voiceOpen ? "bg-hover font-semibold text-ink" : "text-muted hover:bg-hover/70 hover:text-ink",
+            )}
+          >
+            <AudioLines className="size-4" />
+            Voice
           </button>
         </div>
 
@@ -287,6 +302,7 @@ function Rail({
   onOpenMistakes,
   mistakeCount,
   onOpenPractice,
+  onOpenVoice,
 }: Props) {
   const next: Record<Theme, Theme> = { light: "dark", dark: "system", system: "light" };
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
@@ -330,6 +346,9 @@ function Rail({
         </span>
         <IconButton label="Practice" tooltip="right" onClick={onOpenPractice} className={railButton}>
           <Zap />
+        </IconButton>
+        <IconButton label="Voice" tooltip="right" onClick={onOpenVoice} className={railButton}>
+          <AudioLines />
         </IconButton>
       </div>
 

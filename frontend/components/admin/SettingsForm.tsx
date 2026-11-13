@@ -1,9 +1,10 @@
 "use client";
 
-import { LoaderCircle, Save } from "lucide-react";
+import { LoaderCircle, Play, Save, Square } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useLoad } from "@/hooks/useLoad";
-import { api, type AppSettings } from "@/lib/api";
+import { api, previewVoice, type AppSettings } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { AdminTeacher } from "@/lib/teachers";
 import { Switch } from "../ui/Switch";
 import { useToast } from "../ui/Toast";
@@ -189,30 +190,121 @@ function Form({ initial, teachers }: { initial: AppSettings; teachers: AdminTeac
           </div>
         </Card>
 
-        <Card title="Natural voice" description="The voice that reads questions aloud in the level test.">
-          <div className="grid gap-4 p-5 sm:grid-cols-2">
-            <Field label="Voice model">
-              <Input value={draft.tts_model} onChange={(e) => set("tts_model", e.target.value)} className="font-mono" />
-            </Field>
-            <Field label="Voice">
-              <Select value={draft.tts_voice} onChange={(e) => set("tts_voice", e.target.value)}>
-                {[
-                  ["hannah", "Hannah (female)"],
-                  ["diana", "Diana (female)"],
-                  ["autumn", "Autumn (female)"],
-                  ["troy", "Troy (male)"],
-                  ["daniel", "Daniel (male)"],
-                  ["austin", "Austin (male)"],
-                ].map(([id, label]) => (
-                  <option key={id} value={id}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+        <Card
+          title="Platform voice"
+          description="One voice for the whole platform: reading replies aloud, the level test, daily challenges and Voice."
+        >
+          <div className="p-5">
+            <VoicePicker
+              value={draft.tts_voice}
+              model={draft.tts_model}
+              onChange={(voice) => set("tts_voice", voice)}
+            />
+            <div className="mt-5 max-w-sm">
+              <Field label="Voice model">
+                <Input
+                  value={draft.tts_model}
+                  onChange={(e) => set("tts_model", e.target.value)}
+                  className="font-mono"
+                />
+              </Field>
+            </div>
           </div>
         </Card>
       </div>
     </>
+  );
+}
+
+const VOICES = [
+  { id: "hannah", name: "Hannah", tone: "Female · warm" },
+  { id: "diana", name: "Diana", tone: "Female · clear" },
+  { id: "autumn", name: "Autumn", tone: "Female · soft" },
+  { id: "troy", name: "Troy", tone: "Male · friendly" },
+  { id: "daniel", name: "Daniel", tone: "Male · calm" },
+  { id: "austin", name: "Austin", tone: "Male · bright" },
+];
+
+let previewAudio: HTMLAudioElement | null = null;
+
+function VoicePicker({ value, model, onChange }: { value: string; model: string; onChange: (voice: string) => void }) {
+  const toast = useToast();
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [loading, setLoading] = useState<string | null>(null);
+
+  const stop = () => {
+    previewAudio?.pause();
+    setPlaying(null);
+  };
+
+  const preview = async (voice: string) => {
+    if (playing === voice) return stop();
+    stop();
+    setLoading(voice);
+    try {
+      const url = URL.createObjectURL(await previewVoice(voice, model));
+      previewAudio ??= new Audio();
+      previewAudio.src = url;
+      previewAudio.onended = () => setPlaying(null);
+      await previewAudio.play();
+      setPlaying(voice);
+    } catch (err) {
+      toast({ message: err instanceof Error ? err.message : "Couldn't play the preview." });
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  return (
+    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Platform voice">
+      {VOICES.map((voice) => {
+        const on = voice.id === value;
+        return (
+          <div
+            key={voice.id}
+            className={cn(
+              "flex items-center gap-3 rounded-xl border p-3 transition-colors",
+              on ? "border-accent bg-accent-soft/50" : "border-line hover:border-accent/40",
+            )}
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => onChange(voice.id)}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            >
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+                  on ? "border-accent" : "border-line",
+                )}
+              >
+                {on && <span className="size-2.5 rounded-full bg-accent" />}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-ink">{voice.name}</span>
+                <span className="block text-xs text-muted">{voice.tone}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void preview(voice.id)}
+              aria-label={playing === voice.id ? `Stop ${voice.name}` : `Play ${voice.name}`}
+              title={playing === voice.id ? "Stop" : "Play a sample"}
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:bg-hover"
+            >
+              {loading === voice.id ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : playing === voice.id ? (
+                <Square className="size-3.5 fill-current" />
+              ) : (
+                <Play className="size-3.5 fill-current" />
+              )}
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 }

@@ -6,14 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useLoad } from "@/hooks/useLoad";
 import { api } from "@/lib/api";
-import {
-  GOALS,
-  LEVELS,
-  type AdminTeacher,
-  type TeacherGoal,
-  type TeacherLevel,
-  type TeacherVoice,
-} from "@/lib/teachers";
+import { GOALS, LEVELS, type AdminTeacher, type TeacherGoal, type TeacherLevel } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 import { IconButton } from "../IconButton";
 import { TeacherCard } from "../TeacherCard";
@@ -231,25 +224,6 @@ function EditorForm({ initial, isNew }: { initial: AdminTeacher; isNew: boolean 
                     <option key={level}>{level}</option>
                   ))}
                 </Select>
-              </Field>
-              <Field label="Voice">
-                <div className="grid h-10 grid-cols-2 gap-0.5 rounded-xl bg-hover p-0.5">
-                  {(["female", "male"] as TeacherVoice[]).map((voice) => (
-                    <button
-                      key={voice}
-                      type="button"
-                      onClick={() => set("voice", voice)}
-                      className={cn(
-                        "rounded-[10px] text-sm capitalize transition-all",
-                        draft.voice === voice
-                          ? "bg-surface font-semibold text-ink shadow-sm"
-                          : "text-muted hover:text-ink",
-                      )}
-                    >
-                      {voice}
-                    </button>
-                  ))}
-                </div>
               </Field>
               <Field label="Color">
                 <div className="flex flex-wrap items-center gap-2">

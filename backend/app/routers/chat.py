@@ -26,6 +26,18 @@ from app.services.tasks import run_in_background
 
 router = APIRouter(tags=["chat"])
 
+VOICE_STEER = (
+    "This is a live spoken conversation and your words are read aloud, so talk like a real person on a call, "
+    "not like a textbook. Treat everything the learner says as something they said to you out loud, not text to "
+    "edit, and skip games, exercises and fill-in-the-blanks. Keep it to one to three short sentences. Use contractions and everyday phrases, react "
+    'to what the learner actually said first ("Oh, nice!", "Really?", "Ha, I know that feeling."), share a '
+    "tiny bit about yourself when it fits, and ask one natural follow-up question. Vary how you start each reply. "
+    "Don't correct every small slip: when a mistake matters, echo the right form casually inside your reply "
+    '(for example "Oh, you went to the beach yesterday? Lovely.") instead of explaining a rule, unless they '
+    "ask. Never add a separate tip, note or correction line, and never end on a correction: end with your "
+    "question. Never use Markdown, lists, bold, emoji, symbols or stage directions."
+)
+
 
 async def _persist(user: dict, teacher: dict, messages: list[dict]) -> None:
     await save_conversation(user["_id"], teacher["_id"], messages)
@@ -69,7 +81,8 @@ async def _stream(
             yield _event({"type": "signed", "sig": sign(user["_id"], teacher["_id"], body.reply_id, check.reply)})
             yield _event({"type": "done"})
             return
-        async for event in teacher_reply(teacher, history, user, check.steer):
+        steer = " ".join(s for s in (VOICE_STEER if body.mode == "voice" else None, check.steer) if s) or None
+        async for event in teacher_reply(teacher, history, user, steer, body.mode == "voice"):
             if event["type"] == "text":
                 parts.append(event["text"])
             elif event["type"] == "done":

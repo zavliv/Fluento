@@ -1,10 +1,8 @@
 import { API_URL } from "./api";
-
-export type SpeechGender = "female" | "male";
+import { toSpeakableText } from "./export";
 
 const MAX_CHUNK = 380;
 const NATURAL_BROWSER_VOICE = /natural|neural|online|premium|enhanced|google/i;
-const FEMALE = /female|samantha|victoria|karen|moira|tessa|zira|susan|serena|fiona|ava|allison|kate|aria|jenny/i;
 const cache = new Map<string, Promise<string>>();
 
 let audio: HTMLAudioElement | null = null;
@@ -29,15 +27,15 @@ export function splitForSpeech(text: string): string[] {
   return chunks.filter(Boolean);
 }
 
-function fetchSpeech(text: string, gender?: SpeechGender): Promise<string> {
-  const key = `${gender ?? ""}|${text}`;
+function fetchSpeech(text: string): Promise<string> {
+  const key = text;
   const cached = cache.get(key);
   if (cached) return cached;
   const pending = fetch(`${API_URL}/speech`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, gender }),
+    body: JSON.stringify({ text }),
   }).then(async (res) => {
     if (!res.ok) throw new Error("Natural voice unavailable");
     return URL.createObjectURL(await res.blob());
@@ -58,17 +56,12 @@ function play(url: string): Promise<void> {
   });
 }
 
-function browserSpeak(text: string, gender: SpeechGender | undefined, onEnd: () => void) {
+function browserSpeak(text: string, onEnd: () => void) {
   const synth = window.speechSynthesis;
   if (!synth) return onEnd();
   const utterance = new SpeechSynthesisUtterance(text);
   const voices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("en"));
-  const byGender = gender ? voices.filter((v) => FEMALE.test(v.name) === (gender === "female")) : voices;
-  const voice =
-    byGender.find((v) => NATURAL_BROWSER_VOICE.test(v.name)) ??
-    voices.find((v) => NATURAL_BROWSER_VOICE.test(v.name)) ??
-    byGender[0] ??
-    voices[0];
+  const voice = voices.find((v) => NATURAL_BROWSER_VOICE.test(v.name)) ?? voices[0];
   if (voice) utterance.voice = voice;
   utterance.onend = onEnd;
   utterance.onerror = onEnd;
@@ -81,10 +74,7 @@ export function stopSpeech() {
   window.speechSynthesis?.cancel();
 }
 
-export async function speak(
-  text: string,
-  options: { gender?: SpeechGender; onStart?: () => void; onEnd?: () => void } = {},
-) {
+export async function speak(text: string, options: { onStart?: () => void; onEnd?: () => void } = {}) {
   stopSpeech();
   const id = ++session;
   const chunks = splitForSpeech(text);
@@ -93,7 +83,7 @@ export async function speak(
   };
   if (!chunks.length) return finish();
 
-  let next = fetchSpeech(chunks[0], options.gender);
+  let next = fetchSpeech(chunks[0]);
   for (let i = 0; i < chunks.length; i++) {
     let url: string;
     try {
@@ -102,14 +92,14 @@ export async function speak(
       if (session !== id) return;
       if (i === 0) {
         options.onStart?.();
-        browserSpeak(text, options.gender, finish);
+        browserSpeak(text, finish);
       } else {
         finish();
       }
       return;
     }
     if (session !== id) return;
-    if (i + 1 < chunks.length) next = fetchSpeech(chunks[i + 1], options.gender);
+    if (i + 1 < chunks.length) next = fetchSpeech(chunks[i + 1]);
     if (i === 0) options.onStart?.();
     try {
       await play(url);
@@ -119,4 +109,104 @@ export async function speak(
     if (session !== id) return;
   }
   finish();
+}
+
+const SENTENCE_END = /[^.!?]*[.!?]+["')\]]*(?:\s+|$)/y;
+const MIN_SENTENCE = 24;
+
+export type SpeechQueue = { push: (delta: string) => void; close: () => void; stop: () => void };
+
+export function createSpeechQueue(handlers: { onStart?: () => void; onEnd?: () => void } = {}): SpeechQueue {
+  stopSpeech();
+  const id = ++session;
+  const texts: string[] = [];
+  const urls: Promise<string>[] = [];
+  let buffer = "";
+  let index = 0;
+  let playing = false;
+  let closed = false;
+  let started = false;
+  let ended = false;
+
+  const finish = () => {
+    if (ended || session !== id) return;
+    ended = true;
+    handlers.onEnd?.();
+  };
+
+  const run = async () => {
+    if (playing) return;
+    playing = true;
+    while (index < urls.length) {
+      if (session !== id) return;
+      const text = texts[index];
+      let url: string | null = null;
+      try {
+        url = await urls[index];
+      } catch {
+        url = null;
+      }
+      if (session !== id) return;
+      if (!started) {
+        started = true;
+        handlers.onStart?.();
+      }
+      if (url) {
+        try {
+          await play(url);
+        } catch {}
+      } else {
+        await new Promise<void>((resolve) => browserSpeak(text, resolve));
+      }
+      index += 1;
+    }
+    playing = false;
+    if (closed && session === id) finish();
+  };
+
+  const enqueue = (text: string) => {
+    const clean = toSpeakableText(text);
+    if (!clean) return;
+    texts.push(clean);
+    urls.push(fetchSpeech(clean));
+    void run();
+  };
+
+  const drain = (force: boolean) => {
+    let pending = "";
+    let last = 0;
+    SENTENCE_END.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = SENTENCE_END.exec(buffer))) {
+      pending += match[0];
+      last = SENTENCE_END.lastIndex;
+      if (pending.trim().length >= MIN_SENTENCE) {
+        enqueue(pending);
+        pending = "";
+      }
+      if (last >= buffer.length) break;
+    }
+    buffer = pending + buffer.slice(last);
+    if (force && buffer.trim()) {
+      enqueue(buffer);
+      buffer = "";
+    }
+  };
+
+  return {
+    push: (delta) => {
+      if (session !== id) return;
+      buffer += delta;
+      drain(false);
+    },
+    close: () => {
+      if (session !== id) return;
+      closed = true;
+      drain(true);
+      if (!playing && index >= urls.length) finish();
+    },
+    stop: () => {
+      if (session === id) stopSpeech();
+    },
+  };
 }

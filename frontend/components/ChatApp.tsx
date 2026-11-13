@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AudioLines,
   ClipboardCheck,
   Flame,
   Keyboard,
@@ -38,6 +39,7 @@ import { TeacherAvatar } from "./TeacherAvatar";
 import { LandingPage } from "./landing/LandingPage";
 import { useSiteSettings } from "./SiteSettings";
 import { Home, homeHeading } from "./home/Home";
+import { VoicePage } from "./voice/VoicePage";
 import { useAuth } from "./auth/AuthProvider";
 import { useToast } from "./ui/Toast";
 
@@ -58,7 +60,7 @@ export default function ChatApp() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { active, messages, select, stop, isStreaming, clear, restore } = chat;
   const { myTeacherIds, addTeacher, removeTeacher } = chat;
-  const [view, setView] = useState<"chat" | "mistakes" | "progress" | "level" | "challenge">("chat");
+  const [view, setView] = useState<"chat" | "mistakes" | "progress" | "level" | "challenge" | "voice">("chat");
   const returnTo = useRef<"chat" | "progress">("chat");
   const { progress, refresh: refreshProgress } = useProgress(Boolean(user));
   const practice = useRef<{ teacherId: string; text: string } | null>(null);
@@ -114,6 +116,12 @@ export default function ChatApp() {
 
   const openPractice = useCallback(() => {
     setView("progress");
+    select(null);
+    if (isMobile()) setSidebarOpen(false);
+  }, [select]);
+
+  const openVoice = useCallback(() => {
+    setView("voice");
     select(null);
     if (isMobile()) setSidebarOpen(false);
   }, [select]);
@@ -240,6 +248,7 @@ export default function ChatApp() {
       { id: "mistakes", label: "My mistakes", group: "Actions", icon: <SpellCheck />, run: openMistakes },
       { id: "challenge", label: "Today's challenge", group: "Actions", icon: <Zap />, run: openChallenge },
       { id: "practice", label: "Practice and progress", group: "Actions", icon: <Flame />, run: openPractice },
+      { id: "voice", label: "Voice conversation", group: "Actions", icon: <AudioLines />, run: openVoice },
       { id: "level", label: "Level check", group: "Actions", icon: <ClipboardCheck />, run: openLevelTest },
     ];
     const teacherCommands: Command[] = teachers.map((t) => ({
@@ -250,7 +259,7 @@ export default function ChatApp() {
       run: () => openTeacher(t.id),
     }));
     return [...teacherCommands, ...actions];
-  }, [teachers, openTeacher, openMistakes, openLevelTest, openChallenge, openPractice, setTheme]);
+  }, [teachers, openTeacher, openMistakes, openLevelTest, openChallenge, openPractice, openVoice, setTheme]);
 
   if (authLoading || teachersLoading || (user && !chat.ready)) {
     return (
@@ -323,6 +332,8 @@ export default function ChatApp() {
         onOpenMistakes={openMistakes}
         practiceOpen={view === "progress"}
         onOpenPractice={openPractice}
+        voiceOpen={view === "voice" && !active}
+        onOpenVoice={openVoice}
         streak={progress?.placed ? progress.streak.current : null}
         practiceDone={Boolean(progress?.streak.done_today)}
         theme={theme}
@@ -339,13 +350,23 @@ export default function ChatApp() {
           typing={chat.streamingTeacherId !== null && chat.streamingTeacherId === active?.id}
           sidebarOpen={sidebarOpen}
           model={model}
-          title={view === "mistakes" ? "My mistakes" : view === "progress" ? "Practice" : home.title}
+          title={
+            view === "mistakes"
+              ? "My mistakes"
+              : view === "progress"
+                ? "Practice"
+                : view === "voice"
+                  ? "Voice"
+                  : home.title
+          }
           subtitle={
             view === "mistakes"
               ? "Mistakes from your chats, collected automatically. Practise them and mark them as learned."
               : view === "progress"
                 ? "A 2-minute challenge a day keeps your streak alive and your level growing."
-                : home.subtitle
+                : view === "voice"
+                  ? "Talk out loud with a teacher. Hands-free, in one natural voice."
+                  : home.subtitle
           }
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onShowTeachers={() => openTeacher(null)}
@@ -359,6 +380,14 @@ export default function ChatApp() {
             onStart={openChallenge}
             onLevelCheck={openLevelTest}
             onRefresh={refreshProgress}
+          />
+        ) : view === "voice" && !active ? (
+          <VoicePage
+            teachers={teachers}
+            defaultTeacherId={defaultTeacherId}
+            userName={user.name}
+            onAsk={chat.ask}
+            onOpenChat={openTeacher}
           />
         ) : view === "mistakes" && !active ? (
           <MistakesPage

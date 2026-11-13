@@ -19,18 +19,12 @@ from app.services.llm import complete
 logger = logging.getLogger("fluento.guardrails")
 
 CONFIG_ID = "guardrails"
-Category = Literal[
-    "ok", "off_topic", "jailbreak", "harmful", "self_harm", "personal_data"
-]
+Category = Literal["ok", "off_topic", "jailbreak", "harmful", "self_harm", "personal_data"]
 FLAGGED: set[str] = {"off_topic", "jailbreak", "harmful", "self_harm"}
 
 _KEY = hashlib.sha256(
     b"fluento-message-signature:"
-    + (
-        settings.jwt_secret.get_secret_value()
-        if settings.jwt_secret
-        else secrets.token_hex(32)
-    ).encode()
+    + (settings.jwt_secret.get_secret_value() if settings.jwt_secret else secrets.token_hex(32)).encode()
 ).digest()
 
 
@@ -61,9 +55,7 @@ async def get_config() -> GuardrailsConfig:
 
 
 async def save_config(config: GuardrailsConfig) -> GuardrailsConfig:
-    await db.settings.update_one(
-        {"_id": CONFIG_ID}, {"$set": config.model_dump()}, upsert=True
-    )
+    await db.settings.update_one({"_id": CONFIG_ID}, {"$set": config.model_dump()}, upsert=True)
     return config
 
 
@@ -78,9 +70,7 @@ def sign(user_id: ObjectId, teacher_id: str, message_id: str, content: str) -> s
 
 def _verified(user_id: ObjectId, teacher_id: str, message: dict) -> bool:
     sig = message.get("sig")
-    return bool(sig) and hmac.compare_digest(
-        sig, sign(user_id, teacher_id, message["id"], message["content"])
-    )
+    return bool(sig) and hmac.compare_digest(sig, sign(user_id, teacher_id, message["id"], message["content"]))
 
 
 async def trusted_history(
@@ -89,12 +79,8 @@ async def trusted_history(
     messages: list[dict],
     max_chars: int | None = None,
 ) -> list[dict]:
-    doc = await db.conversations.find_one(
-        {"user_id": user_id, "teacher_id": teacher_id}, {"messages": 1}
-    )
-    stored = {
-        m["id"]: m for m in (doc or {}).get("messages", []) if m["role"] == "assistant"
-    }
+    doc = await db.conversations.find_one({"user_id": user_id, "teacher_id": teacher_id}, {"messages": 1})
+    stored = {m["id"]: m for m in (doc or {}).get("messages", []) if m["role"] == "assistant"}
     clean: list[dict] = []
     for message in messages:
         if message["role"] == "assistant":
@@ -113,9 +99,7 @@ async def trusted_history(
                 }
             )
         else:
-            content = (
-                message["content"][: max_chars * 2] if max_chars else message["content"]
-            )
+            content = message["content"][: max_chars * 2] if max_chars else message["content"]
             clean.append({**message, "content": content, "sig": None})
     return clean
 
@@ -131,9 +115,7 @@ async def check_limits(user: dict, message: str, config: GuardrailsConfig) -> No
             detail=f"That message is too long. Please keep it under {config.max_message_chars} characters.",
         )
     if config.daily_messages:
-        usage = await db.usage.find_one(
-            {"_id": f"{user['_id']}:{_today()}"}, {"messages": 1}
-        )
+        usage = await db.usage.find_one({"_id": f"{user['_id']}:{_today()}"}, {"messages": 1})
         if (usage or {}).get("messages", 0) >= config.daily_messages:
             raise HTTPException(
                 status_code=429,
@@ -180,15 +162,11 @@ class Screen:
     steer: str | None = None
 
 
-async def screen(
-    user: dict, teacher: dict, history: list[dict], config: GuardrailsConfig
-) -> Screen:
+async def screen(user: dict, teacher: dict, history: list[dict], config: GuardrailsConfig) -> Screen:
     if not config.safety_check or not history or history[-1]["role"] != "user":
         return Screen()
     latest = history[-1]["content"][: config.max_message_chars]
-    previous = next(
-        (m["content"] for m in reversed(history[:-1]) if m["role"] == "assistant"), ""
-    )
+    previous = next((m["content"] for m in reversed(history[:-1]) if m["role"] == "assistant"), "")
     context = f"Teacher's previous message: {previous[:400]}\n\n" if previous else ""
     try:
         raw = await complete(
@@ -240,11 +218,7 @@ async def screen(
                 "category": category,
                 "reason": reason,
                 "message": latest,
-                "action": (
-                    "blocked"
-                    if result.reply
-                    else "steered" if result.steer else "allowed"
-                ),
+                "action": ("blocked" if result.reply else "steered" if result.steer else "allowed"),
                 "reviewed": False,
                 "created_at": now(),
             }

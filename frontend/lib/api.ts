@@ -613,6 +613,7 @@ export async function streamChat(
   replyId: string,
   onEvent: (event: StreamEvent) => void,
   signal: AbortSignal,
+  mode: "text" | "voice" = "text",
 ) {
   let res: Response;
   try {
@@ -620,7 +621,7 @@ export async function streamChat(
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teacher_id: teacherId, messages, reply_id: replyId }),
+      body: JSON.stringify({ teacher_id: teacherId, messages, reply_id: replyId, mode }),
       signal,
     });
   } catch (err) {
@@ -652,6 +653,20 @@ export async function streamChat(
       if (data) onEvent(JSON.parse(data) as StreamEvent);
     }
   }
+}
+
+export async function previewVoice(voice: string, model: string): Promise<Blob> {
+  const res = await fetch(`${API_URL}/admin/speech/preview`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ voice, model }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(errorMessage(data?.detail, res.status), res.status);
+  }
+  return res.blob();
 }
 
 export async function checkHealth(): Promise<{ online: boolean; model: string | null }> {
